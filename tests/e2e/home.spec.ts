@@ -31,7 +31,8 @@ test.describe("Home page", () => {
     await seedDecks(page, [STUB_DECK]);
     await page.goto("/");
     await expect(page.getByText(STUB_DECK.title)).toBeVisible();
-    await page.getByRole("button", { name: /delete/i }).first().click();
+    await page.getByRole("button", { name: "Delete" }).first().click();
+    await page.getByRole("button", { name: "Confirm delete" }).first().click();
     await expect(page.getByText(STUB_DECK.title)).not.toBeVisible();
   });
 });
