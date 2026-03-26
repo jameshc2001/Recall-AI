@@ -40,7 +40,46 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   types.ts                 — Card, Deck, Message interfaces
   storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, deleteDeck)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
+/tests
+  /unit
+    setup.ts               — jsdom polyfills + localStorage.clear() between tests
+    deckParser.test.ts     — Unit tests for parseDeckFromMessage
+    storage.test.ts        — Unit tests for localStorage helpers
+  /e2e
+    fixtures.ts            — Shared deck data + seedDecks() helper
+    home.spec.ts           — Home page E2E tests
+    create.spec.ts         — Deck creation flow E2E tests (stubs /api/chat)
+    practice.spec.ts       — Practice session E2E tests
 ```
+
+## Testing
+
+### Requirement — always write tests
+**Every code change must include appropriate tests. Do not leave tests as a follow-up.**
+
+- **Pure logic** (`lib/`, utility functions, new helpers) → Vitest unit test in `tests/unit/`.
+- **User-facing flows** (new pages, significant UI changes, new interactions) → Playwright E2E test in `tests/e2e/`.
+- **Components with non-trivial logic** → Vitest + React Testing Library in `components/__tests__/`.
+- After any change, run `npm test` (unit) and verify it passes before finishing. Run `npm run test:e2e` for E2E changes.
+- Never leave a failing test in place — fix the test or the code, whichever is wrong.
+
+### Stubbing external calls
+- All E2E tests that touch the create flow **must** stub `POST /api/chat` using `page.route()`. Never make real Claude API calls in tests.
+- Seed localStorage using the `seedDecks()` helper from `tests/e2e/fixtures.ts` rather than navigating through the UI to create data.
+- Unit tests that touch `storage.ts` rely on jsdom's localStorage — no mocking needed; it is cleared automatically in `tests/unit/setup.ts`.
+
+### Commands
+```bash
+npm test                  # Vitest unit tests (fast, ~1s)
+npm run test:watch        # Vitest in watch mode
+npm run test:coverage     # Unit test coverage report
+npm run test:e2e          # Playwright E2E (starts dev server automatically)
+npm run test:e2e:ui       # Playwright with interactive UI
+```
+
+### Config files
+- `vitest.config.ts` — jsdom environment, `@` alias, excludes `tests/e2e/`
+- `playwright.config.ts` — Chromium only, baseURL `http://localhost:3000`, auto-starts `next dev`
 
 ## Setup Notes
 - The package name is `recall-ai` (lowercase, no spaces) — the directory name "Recall AI" cannot be used directly as an npm package name.

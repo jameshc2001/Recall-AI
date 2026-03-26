@@ -4,7 +4,10 @@
       "Bash(npx create-next-app@latest . --typescript --tailwind --app --no-src-dir --import-alias \"@/*\" --yes)",
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(cd /c/Users/james/Documents/\"Recall AI\")",
+      "Bash(npx playwright:*)",
+      "Bash(npm test:*)"
     ]
   }
 }
