@@ -55,6 +55,7 @@ export default function CreatePage() {
   async function handleGenerate() {
     if (!selectedCount || isLoading) return;
     setError("");
+    setIsLoading(true);
     setStep("generating");
     try {
       const res = await fetch("/api/chat", {
@@ -74,6 +75,8 @@ export default function CreatePage() {
     } catch {
       setError("Something went wrong. Please try again.");
       setStep("count");
+    } finally {
+      setIsLoading(false);
     }
   }
 
