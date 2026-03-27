@@ -5,7 +5,7 @@
 **At the end of every session, update this file with anything relevant** — new features, design decisions, constraints discovered, patterns established, or anything a future session would benefit from knowing. Keep entries concise and factual. Do not document things already derivable from the code itself (file structure, type definitions, etc.) unless there is non-obvious context behind them.
 
 ## Project Overview
-A clean, minimal web app that uses the Claude API to generate flashcard decks on any topic. Claude asks the user clarifying questions (topic, difficulty, number of cards, etc.) before generating the deck. Users can save decks and practice them using a flip-card interface where they self-mark correct/incorrect.
+A clean, minimal web app that uses the Claude API to generate flashcard decks on any topic. The user describes what they want to study; Claude recommends a card count; the user confirms and the deck is generated. Users can save decks and practice them using a flip-card interface where they self-mark correct/incorrect.
 
 ## Tech Stack
 - **Framework:** Next.js 16 (App Router) with TypeScript
@@ -14,7 +14,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - **Storage:** localStorage for saving decks (no database required)
 
 ## Core Features
-1. **Deck Creation** — Conversational flow where Claude asks clarifying questions before generating cards
+1. **Deck Creation** — Form-based flow: user describes the deck → Claude recommends a count → user picks count → deck is generated
 2. **Card Format** — Simple question / answer pairs (no multiple choice)
 3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong
 4. **Deck Management** — Save, view, and delete decks; decks persist via localStorage
@@ -31,14 +31,14 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 /app
   layout.tsx               — Root layout (Geist font, global styles, metadata, ThemeToggle, FOUC script)
   page.tsx                 — Home / deck list
-  /api/chat/route.ts       — Claude API proxy (server-side only)
-  /create/page.tsx         — Conversational deck creation flow
+  /api/chat/route.ts       — Deck generation route: takes { description, count }, returns { role, content }
+  /api/recommend/route.ts  — Card count recommendation route: takes { description }, returns { count, reasoning }
+  /create/page.tsx         — Form-based deck creation flow (steps: form → count → generating → ready)
   /practice/[id]/page.tsx  — Practice mode for a deck
 /components
   DeckCard.tsx             — Single deck tile (title, count, date, delete/practice)
   DeckList.tsx             — Responsive grid of DeckCards + empty state
-  ChatMessage.tsx          — Message bubble (user/assistant); strips JSON from display
-  ChatWindow.tsx           — Scrollable chat list + input form with loading indicator
+  DeckGeneratingLoader.tsx — Animated loader shown while Claude generates the deck
   FlashCard.tsx            — 3D CSS flip card (question front / answer back)
   ProgressBar.tsx          — current / total progress indicator
   ScoreSummary.tsx         — End-of-session score with restart/home actions
@@ -55,7 +55,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   /e2e
     fixtures.ts            — Shared deck data + seedDecks() helper
     home.spec.ts           — Home page E2E tests
-    create.spec.ts         — Deck creation flow E2E tests (stubs /api/chat)
+    create.spec.ts         — Deck creation flow E2E tests (stubs /api/chat and /api/recommend)
     practice.spec.ts       — Practice session E2E tests
     theme.spec.ts          — Dark mode toggle E2E tests
 ```
@@ -79,7 +79,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - Never leave a failing test in place — fix the test or the code, whichever is wrong.
 
 ### Stubbing external calls
-- All E2E tests that touch the create flow **must** stub `POST /api/chat` using `page.route()`. Never make real Claude API calls in tests.
+- All E2E tests that touch the create flow **must** stub both `POST /api/chat` and `POST /api/recommend` using `page.route()`. Never make real Claude API calls in tests.
 - Seed localStorage using the `seedDecks()` helper from `tests/e2e/fixtures.ts` rather than navigating through the UI to create data.
 - Unit tests that touch `storage.ts` rely on jsdom's localStorage — no mocking needed; it is cleared automatically in `tests/unit/setup.ts`.
 
@@ -124,12 +124,9 @@ interface Deck {
   createdAt: string;
   cards: Card[];
 }
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
 ```
+
+The `Message` type (`{ role: "user" | "assistant"; content: string }`) is defined in `lib/types.ts` but is no longer used by the create flow. It may be removed if no future feature needs it.
 
 ## localStorage Schema
 All decks are stored under a single key:
@@ -144,9 +141,16 @@ Key:   "theme"
 Value: "dark" | "light"
 ```
 
-## Claude API Route
-- **Endpoint:** `POST /api/chat`
-- **Request body:** `{ messages: Message[] }`
+## Claude API Routes
+
+Both routes are non-streaming and inject their system prompts server-side (never sent to the client).
+
+**`POST /api/recommend`**
+- **Request body:** `{ description: string }`
+- **Response body:** `{ count: number, reasoning: string }`
+- Claude reads the description and returns a recommended card count with a one-sentence explanation.
+
+**`POST /api/chat`**
+- **Request body:** `{ description: string, count: number }`
 - **Response body:** `{ role: "assistant", content: string }`
-- Non-streaming. System prompt is injected server-side (never sent to the client).
-- Claude is instructed to gather topic/difficulty/count, confirm, then emit a fenced `\`\`\`json` block containing the deck. `lib/deckParser.ts` extracts and validates this block.
+- Claude generates exactly `count` cards based on `description` and returns a fenced ` ```json ` block. `lib/deckParser.ts` extracts and validates this block.
