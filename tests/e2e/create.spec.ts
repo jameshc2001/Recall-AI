@@ -1,8 +1,20 @@
 import { test, expect } from "@playwright/test";
 import { STUB_DECK_RESPONSE_CONTENT } from "./fixtures";
 
-/** Intercept POST /api/chat and return a canned assistant response. */
-function stubChat(page: import("@playwright/test").Page, content: string) {
+const REASONING =
+  "A beginner JavaScript deck for a fun quiz works best with around 10 focused cards.";
+
+function stubRecommend(page: import("@playwright/test").Page, count = 10) {
+  return page.route("/api/recommend", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ count, reasoning: REASONING }),
+    });
+  });
+}
+
+function stubGenerate(page: import("@playwright/test").Page, content: string) {
   return page.route("/api/chat", async (route) => {
     await route.fulfill({
       status: 200,
@@ -12,46 +24,70 @@ function stubChat(page: import("@playwright/test").Page, content: string) {
   });
 }
 
-const GREETING = "Hi! I'm here to help you build a flashcard deck. What topic would you like to study?";
-const CONFIRM = "Got it — 3 JavaScript cards at beginner difficulty. Ready to generate?";
-
 test.describe("Create page", () => {
-  test("shows the assistant greeting on load", async ({ page }) => {
-    await stubChat(page, GREETING);
+  test("shows description form on load", async ({ page }) => {
     await page.goto("/create");
-    await expect(page.getByText(GREETING)).toBeVisible();
+    await expect(page.getByRole("textbox")).toBeVisible();
+    await expect(page.getByRole("button", { name: /continue/i })).toBeVisible();
   });
 
-  test("sends user message and shows assistant reply", async ({ page }) => {
-    let callCount = 0;
-    await page.route("/api/chat", async (route) => {
-      callCount++;
-      const response = callCount === 1 ? GREETING : CONFIRM;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ role: "assistant", content: response }),
-      });
-    });
-
+  test("continue button is disabled when description is empty", async ({ page }) => {
     await page.goto("/create");
-    await expect(page.getByText(GREETING)).toBeVisible();
-
-    await page.getByRole("textbox").fill("JavaScript");
-    await page.getByRole("button", { name: /send/i }).click();
-    await expect(page.getByText(CONFIRM)).toBeVisible();
+    await expect(page.getByRole("button", { name: /continue/i })).toBeDisabled();
   });
 
-  test("shows deck-ready UI when Claude returns a deck JSON", async ({ page }) => {
-    await stubChat(page, STUB_DECK_RESPONSE_CONTENT);
+  test("submitting description shows card count picker with AI recommendation", async ({
+    page,
+  }) => {
+    await stubRecommend(page, 10);
     await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics for a fun quiz");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await expect(page.getByRole("button", { name: /generate deck/i })).toBeVisible();
+  });
+
+  test("recommended count is pre-selected so generate button is enabled", async ({ page }) => {
+    await stubRecommend(page, 10);
+    await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics for a fun quiz");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await expect(page.getByRole("button", { name: /generate deck/i })).toBeEnabled();
+  });
+
+  test("user can select a different card count", async ({ page }) => {
+    await stubRecommend(page, 10);
+    await stubGenerate(page, STUB_DECK_RESPONSE_CONTENT);
+    await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /^20/ }).click();
+    await page.getByRole("button", { name: /generate deck/i }).click();
+    await expect(page.getByText(/cards ready/i)).toBeVisible();
+  });
+
+  test("shows deck-ready UI when deck is generated", async ({ page }) => {
+    await stubRecommend(page);
+    await stubGenerate(page, STUB_DECK_RESPONSE_CONTENT);
+    await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics for a fun quiz");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /generate deck/i }).click();
     await expect(page.getByText(/cards ready/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /save deck/i })).toBeVisible();
   });
 
   test("saves deck and redirects to home", async ({ page }) => {
-    await stubChat(page, STUB_DECK_RESPONSE_CONTENT);
+    await stubRecommend(page);
+    await stubGenerate(page, STUB_DECK_RESPONSE_CONTENT);
     await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /generate deck/i }).click();
     await expect(page.getByRole("button", { name: /save deck/i })).toBeVisible();
     await page.getByRole("button", { name: /save deck/i }).click();
     await expect(page).toHaveURL("/");
@@ -59,18 +95,34 @@ test.describe("Create page", () => {
   });
 
   test("discarding navigates back to home without saving", async ({ page }) => {
-    await stubChat(page, STUB_DECK_RESPONSE_CONTENT);
+    await stubRecommend(page);
+    await stubGenerate(page, STUB_DECK_RESPONSE_CONTENT);
     await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /generate deck/i }).click();
     await expect(page.getByRole("link", { name: /discard/i })).toBeVisible();
     await page.getByRole("link", { name: /discard/i }).click();
     await expect(page).toHaveURL("/");
-    // Deck should not have been saved
     await expect(page.getByText("JavaScript Basics")).not.toBeVisible();
   });
 
-  test("shows error message when API call fails", async ({ page }) => {
-    await page.route("/api/chat", (route) => route.abort());
+  test("back button on count step returns to form", async ({ page }) => {
+    await stubRecommend(page);
     await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /back/i }).click();
+    await expect(page.getByRole("textbox")).toBeVisible();
+  });
+
+  test("shows error when recommend API fails", async ({ page }) => {
+    await page.route("/api/recommend", (route) => route.abort());
+    await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
     await expect(page.getByText(/something went wrong/i)).toBeVisible();
   });
 });

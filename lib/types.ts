@@ -12,7 +12,3 @@ export interface Deck {
   cards: Card[];
 }
 
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
