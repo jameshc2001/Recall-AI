@@ -62,7 +62,7 @@ export default function CardNote({ initialNote, onSave }: Props) {
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full">
       {mode === "edit" ? (
         <div className="flex flex-col gap-2">
           <textarea

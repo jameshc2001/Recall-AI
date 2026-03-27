@@ -66,7 +66,7 @@ export default function PracticePage() {
   const card = deck.cards[currentIndex];
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col h-screen">
+    <main className="max-w-3xl mx-auto px-4 py-10 flex flex-col h-screen">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
