@@ -12,6 +12,9 @@ import ScoreSummary from "@/components/ScoreSummary";
 
 type Phase = "practicing" | "summary";
 
+const DEFAULT_WIDTH = 768;
+const MIN_WIDTH = 400;
+
 export default function PracticePage() {
   const params = useParams();
   const router = useRouter();
@@ -21,6 +24,7 @@ export default function PracticePage() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [results, setResults] = useState<Array<"correct" | "incorrect">>([]);
   const [phase, setPhase] = useState<Phase>("practicing");
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
 
   useEffect(() => {
     const id = typeof params.id === "string" ? params.id : params.id?.[0];
@@ -51,6 +55,27 @@ export default function PracticePage() {
     setPhase("practicing");
   }
 
+  function startResize(e: React.PointerEvent, side: "left" | "right") {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+
+    function onMove(ev: PointerEvent) {
+      const delta = ev.clientX - startX;
+      // Container is centered, so dragging one side by N px expands both sides → width grows 2×N
+      const expansion = side === "right" ? delta : -delta;
+      const maxWidth = window.innerWidth - 32;
+      setPanelWidth(Math.max(MIN_WIDTH, Math.min(maxWidth, startWidth + expansion * 2)));
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  }
+
   function handleSaveNote(cardId: string, note: string) {
     if (!deck) return;
     const updatedCards = deck.cards.map((c) =>
@@ -66,7 +91,27 @@ export default function PracticePage() {
   const card = deck.cards[currentIndex];
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-10 flex flex-col h-screen">
+    <div
+      className="relative h-screen"
+      style={{ width: `min(${panelWidth}px, calc(100vw - 2rem))`, margin: "0 auto" }}
+    >
+      {/* Left resize handle */}
+      <div
+        className="absolute top-0 -left-3 h-full w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
+        onPointerDown={(e) => startResize(e, "left")}
+      >
+        <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+
+      {/* Right resize handle */}
+      <div
+        className="absolute top-0 -right-3 h-full w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
+        onPointerDown={(e) => startResize(e, "right")}
+      >
+        <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+
+    <main className="px-4 py-10 flex flex-col h-screen">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
@@ -78,10 +123,11 @@ export default function PracticePage() {
         {phase === "summary" ? (
           <ScoreSummary results={results} deckTitle={deck.title} onRestart={handleRestart} />
         ) : (
-          <div className="flex flex-col h-full p-6 gap-6">
+          <div className="flex flex-col h-full p-6 gap-4">
             <ProgressBar current={currentIndex + 1} total={deck.cards.length} />
 
-            <div className="flex-1 flex flex-col items-center justify-start gap-6 overflow-y-auto pt-2 pb-6">
+            {/* Card + buttons — never scrolls, stays pinned */}
+            <div className="shrink-0 flex flex-col items-center gap-4 pt-2">
               <FlashCard
                 question={card.question}
                 answer={card.answer}
@@ -105,8 +151,11 @@ export default function PracticePage() {
                   </button>
                 </div>
               )}
+            </div>
 
-              {isFlipped && (
+            {/* Note — takes remaining space and scrolls independently */}
+            {isFlipped && (
+              <div className="flex-1 overflow-y-auto min-h-0 pb-4 scrollbar-subtle">
                 <CardNote
                   key={card.id}
                   cardId={card.id}
@@ -115,11 +164,12 @@ export default function PracticePage() {
                   initialNote={card.note}
                   onSave={(note) => handleSaveNote(card.id, note)}
                 />
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
     </main>
+    </div>
   );
 }

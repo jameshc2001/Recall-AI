@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Subtle scrollbar — matches the app's neutral palette */
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(229 229 229) transparent; /* neutral-200 thumb */
+}
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background-color: rgb(229 229 229); /* neutral-200 */
+  border-radius: 9999px;
+}
+.dark .scrollbar-subtle {
+  scrollbar-color: rgb(64 64 64) transparent; /* neutral-700 */
+}
+.dark .scrollbar-subtle::-webkit-scrollbar-thumb {
+  background-color: rgb(64 64 64); /* neutral-700 */
+}
