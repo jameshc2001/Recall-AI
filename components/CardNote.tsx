@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vs, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface Props {
   cardId: string;
@@ -12,45 +14,62 @@ interface Props {
   onSave: (note: string) => void;
 }
 
-const markdownComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
-  p: ({ children }) => <p className="leading-relaxed mb-2 last:mb-0">{children}</p>,
-  h1: ({ children }) => <h1 className="text-base font-semibold mb-2 mt-3 first:mt-0">{children}</h1>,
-  h2: ({ children }) => <h2 className="text-sm font-semibold mb-1.5 mt-3 first:mt-0">{children}</h2>,
-  h3: ({ children }) => <h3 className="text-sm font-medium mb-1 mt-2 first:mt-0">{children}</h3>,
-  ul: ({ children }) => <ul className="list-disc pl-5 space-y-1 mb-2">{children}</ul>,
-  ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1 mb-2">{children}</ol>,
-  blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-neutral-300 dark:border-neutral-600 pl-3 italic text-neutral-600 dark:text-neutral-400 my-2">
-      {children}
-    </blockquote>
-  ),
-  a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline">
-      {children}
-    </a>
-  ),
-  code: ({ children, className }) => {
-    const isBlock = Boolean(className);
-    if (isBlock) {
-      return (
-        <pre className="bg-neutral-100 dark:bg-neutral-800 p-3 rounded-lg overflow-x-auto text-sm my-2">
-          <code className="font-mono">{children}</code>
-        </pre>
-      );
-    }
-    return (
-      <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-sm font-mono">
-        {children}
-      </code>
-    );
-  },
-  pre: ({ children }) => <>{children}</>,
-};
-
 export default function CardNote({ question, answer, initialNote, onSave }: Props) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [draft, setDraft] = useState(initialNote ?? "");
   const [saved, setSaved] = useState(initialNote ?? "");
+
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const markdownComponents: React.ComponentProps<typeof ReactMarkdown>["components"] = {
+    p: ({ children }) => <p className="leading-relaxed mb-2 last:mb-0">{children}</p>,
+    h1: ({ children }) => <h1 className="text-base font-semibold mb-2 mt-3 first:mt-0">{children}</h1>,
+    h2: ({ children }) => <h2 className="text-sm font-semibold mb-1.5 mt-3 first:mt-0">{children}</h2>,
+    h3: ({ children }) => <h3 className="text-sm font-medium mb-1 mt-2 first:mt-0">{children}</h3>,
+    ul: ({ children }) => <ul className="list-disc pl-5 space-y-1 mb-2">{children}</ul>,
+    ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1 mb-2">{children}</ol>,
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-4 border-neutral-300 dark:border-neutral-600 pl-3 italic text-neutral-600 dark:text-neutral-400 my-2">
+        {children}
+      </blockquote>
+    ),
+    a: ({ children, href }) => (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline">
+        {children}
+      </a>
+    ),
+    code: ({ children, className }) => {
+      const lang = /language-(\w+)/.exec(className ?? "")?.[1];
+      if (lang) {
+        return (
+          <SyntaxHighlighter
+            language={lang}
+            style={isDark ? vscDarkPlus : vs}
+            customStyle={{ borderRadius: "0.5rem", fontSize: "0.875rem", margin: "0.5rem 0" }}
+            PreTag="div"
+          >
+            {String(children).replace(/\n$/, "")}
+          </SyntaxHighlighter>
+        );
+      }
+      return (
+        <code className="bg-neutral-100 dark:bg-neutral-800 px-1 py-0.5 rounded text-sm font-mono">
+          {children}
+        </code>
+      );
+    },
+    pre: ({ children }) => <>{children}</>,
+  };
 
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
