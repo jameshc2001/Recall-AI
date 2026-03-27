@@ -114,6 +114,7 @@ export default function CreatePage() {
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              maxLength={2000}
               placeholder="e.g. Beginner Python for someone learning to code for the first time — just the basics, for a fun quiz"
               rows={4}
               className="w-full text-sm bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-neutral-300 resize-none dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100 dark:focus:ring-neutral-600 dark:placeholder-neutral-500"
