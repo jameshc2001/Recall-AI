@@ -170,3 +170,104 @@ test.describe("Card notes", () => {
     await expect(page.getByText("Pre-existing note text")).toBeVisible();
   });
 });
+
+test.describe("AI note generation", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+  });
+
+  test("'Ask AI to fill this note' button appears in edit mode", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await expect(page.getByText("Ask AI to fill this note")).toBeVisible();
+  });
+
+  test("clicking the AI button reveals a prompt input", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByText("Ask AI to fill this note").click();
+    await expect(page.getByPlaceholder("What should AI write?")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Generate" })).toBeVisible();
+  });
+
+  test("generating fills the draft textarea with AI content", async ({ page }) => {
+    await page.route("**/api/note", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ content: "## AI Note\n\nThis is the generated content." }),
+      });
+    });
+
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByText("Ask AI to fill this note").click();
+    await page.getByPlaceholder("What should AI write?").fill("explain with examples");
+    await page.getByRole("button", { name: "Generate" }).click();
+
+    // AI panel closes, draft textarea should be populated
+    await expect(page.getByPlaceholder("What should AI write?")).not.toBeVisible();
+    await expect(page.getByPlaceholder("Add a note…")).toHaveValue(/## AI Note/);
+  });
+
+  test("saving an AI-generated note persists and renders markdown", async ({ page }) => {
+    await page.route("**/api/note", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ content: "## Key Insight\n\n- Point one\n- Point two" }),
+      });
+    });
+
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByText("Ask AI to fill this note").click();
+    await page.getByPlaceholder("What should AI write?").fill("summarise");
+    await page.getByRole("button", { name: "Generate" }).click();
+    await page.getByRole("button", { name: "Save note" }).click();
+
+    await expect(page.getByRole("heading", { name: "Key Insight" })).toBeVisible();
+    await expect(page.getByText("Point one")).toBeVisible();
+  });
+
+  test("shows an error message when the API fails", async ({ page }) => {
+    await page.route("**/api/note", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Failed to reach Claude API" }),
+      });
+    });
+
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByText("Ask AI to fill this note").click();
+    await page.getByPlaceholder("What should AI write?").fill("explain");
+    await page.getByRole("button", { name: "Generate" }).click();
+
+    await expect(page.getByText("Failed to reach Claude API")).toBeVisible();
+  });
+
+  test("Cancel in AI panel dismisses it without clearing the draft", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+
+    // Type something in the note textarea first
+    await page.getByPlaceholder("Add a note…").fill("my draft");
+
+    // Open AI panel then cancel
+    await page.getByText("Ask AI to fill this note").click();
+    await page.getByPlaceholder("What should AI write?").fill("some prompt");
+    await page.locator(".flex.flex-col.gap-2.rounded-xl").getByRole("button", { name: "Cancel" }).click();
+
+    // AI panel gone, draft still intact
+    await expect(page.getByPlaceholder("What should AI write?")).not.toBeVisible();
+    await expect(page.getByPlaceholder("Add a note…")).toHaveValue("my draft");
+  });
+});

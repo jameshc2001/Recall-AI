@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+function sanitize(s: string): string {
+  return s.replace(/<\/[^>]*>/g, "");
+}
+
 const SYSTEM_PROMPT = `You are a flashcard deck advisor. The user's study description will be provided inside <user_description> tags.
 
 Your only task is to recommend the ideal number of flashcards for that topic.
@@ -43,7 +47,7 @@ export async function POST(req: NextRequest) {
       model: "claude-sonnet-4-6",
       max_tokens: 256,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `<user_description>${description}</user_description>` }],
+      messages: [{ role: "user", content: `<user_description>${sanitize(description)}</user_description>` }],
     });
 
     const content = response.content[0];

@@ -6,6 +6,8 @@ import remarkGfm from "remark-gfm";
 
 interface Props {
   cardId: string;
+  question: string;
+  answer: string;
   initialNote: string | undefined;
   onSave: (note: string) => void;
 }
@@ -45,10 +47,15 @@ const markdownComponents: React.ComponentProps<typeof ReactMarkdown>["components
   pre: ({ children }) => <>{children}</>,
 };
 
-export default function CardNote({ initialNote, onSave }: Props) {
+export default function CardNote({ question, answer, initialNote, onSave }: Props) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [draft, setDraft] = useState(initialNote ?? "");
   const [saved, setSaved] = useState(initialNote ?? "");
+
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   function handleSave() {
     setSaved(draft);
@@ -58,7 +65,35 @@ export default function CardNote({ initialNote, onSave }: Props) {
 
   function handleCancel() {
     setDraft(saved);
+    setAiOpen(false);
+    setAiPrompt("");
+    setAiError("");
     setMode("view");
+  }
+
+  async function handleAiFill() {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const res = await fetch("/api/note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, answer, prompt: aiPrompt.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Request failed");
+      }
+      const data = await res.json();
+      setDraft(data.content ?? "");
+      setAiOpen(false);
+      setAiPrompt("");
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   return (
@@ -73,6 +108,67 @@ export default function CardNote({ initialNote, onSave }: Props) {
             rows={6}
             className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-800 dark:text-neutral-100 p-3 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 placeholder:text-neutral-400"
           />
+
+          {/* AI fill section */}
+          {aiOpen ? (
+            <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                Tell AI what to write — e.g. &ldquo;explain with examples&rdquo;, &ldquo;add a mnemonic&rdquo;, &ldquo;compare with a table&rdquo;
+              </p>
+              <textarea
+                autoFocus
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAiFill();
+                  if (e.key === "Escape") { setAiOpen(false); setAiPrompt(""); setAiError(""); }
+                }}
+                placeholder="What should AI write?"
+                rows={2}
+                maxLength={500}
+                disabled={aiLoading}
+                className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-800 dark:text-neutral-100 p-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 placeholder:text-neutral-400 disabled:opacity-50"
+              />
+              {aiError && (
+                <p className="text-xs text-red-500 dark:text-red-400">{aiError}</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => { setAiOpen(false); setAiPrompt(""); setAiError(""); }}
+                  disabled={aiLoading}
+                  className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors px-2 py-1 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAiFill}
+                  disabled={aiLoading || !aiPrompt.trim()}
+                  className="text-xs bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 px-3 py-1.5 rounded-lg font-medium hover:opacity-80 transition-opacity disabled:opacity-40 flex items-center gap-1.5"
+                >
+                  {aiLoading ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Generating…
+                    </>
+                  ) : (
+                    "Generate"
+                  )}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAiOpen(true)}
+              className="self-start text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors flex items-center gap-1"
+            >
+              <span>✦</span>
+              <span>Ask AI to fill this note</span>
+            </button>
+          )}
+
           <div className="flex gap-2 justify-end">
             <button
               onClick={handleCancel}

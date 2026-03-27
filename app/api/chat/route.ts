@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+function sanitize(s: string): string {
+  return s.replace(/<\/[^>]*>/g, "");
+}
+
 const SYSTEM_PROMPT = `You are a flashcard deck generator. The user's deck description will be provided inside <user_description> tags, followed by the exact number of cards to generate.
 
 Your only task is to generate flashcard question/answer pairs on the described topic.
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [
-        { role: "user", content: `<user_description>${description}</user_description>\n\nGenerate exactly ${count} cards.` },
+        { role: "user", content: `<user_description>${sanitize(description)}</user_description>\n\nGenerate exactly ${count} cards.` },
       ],
     });
 

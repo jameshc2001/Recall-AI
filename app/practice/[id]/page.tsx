@@ -110,6 +110,8 @@ export default function PracticePage() {
                 <CardNote
                   key={card.id}
                   cardId={card.id}
+                  question={card.question}
+                  answer={card.answer}
                   initialNote={card.note}
                   onSave={(note) => handleSaveNote(card.id, note)}
                 />

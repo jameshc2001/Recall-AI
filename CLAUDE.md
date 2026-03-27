@@ -18,8 +18,9 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 1. **Deck Creation** — Form-based flow: user describes the deck → Claude recommends a count → user picks count → deck is generated
 2. **Card Format** — Simple question / answer pairs (no multiple choice)
 3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong; after flipping, user can add/edit a per-card markdown note
-4. **Deck Management** — Save, view, and delete decks; decks persist via localStorage
-5. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
+4. **AI Note Generation** — In note edit mode, "Ask AI to fill this note" opens an inline prompt input; the user describes what they want (e.g. "explain with examples", "add a mnemonic"); Claude writes a rich markdown note via `POST /api/note`
+5. **Deck Management** — Save, view, and delete decks; decks persist via localStorage
+6. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
 
 ## Design Principles
 - Clean and minimal UI — no clutter
@@ -168,3 +169,8 @@ Both routes are non-streaming and inject their system prompts server-side (never
 - **Request body:** `{ description: string, count: number }`
 - **Response body:** `{ role: "assistant", content: string }`
 - Claude generates exactly `count` cards based on `description` and returns a fenced ` ```json ` block. `lib/deckParser.ts` extracts and validates this block.
+
+**`POST /api/note`**
+- **Request body:** `{ question: string, answer: string, prompt: string }`
+- **Response body:** `{ content: string }` — raw Markdown
+- Claude writes a study note for the given card based on the user's free-text prompt. The response is injected directly into the `CardNote` draft textarea. `CardNote` receives `question` and `answer` as props so it can include them in the request.
