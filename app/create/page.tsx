@@ -61,16 +61,16 @@ export default function CreatePage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col h-screen">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors">
+        <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
         </Link>
         <h1 className="text-xl font-semibold">Create a deck</h1>
       </div>
 
-      <div className="flex-1 border border-neutral-200 rounded-2xl overflow-hidden flex flex-col bg-neutral-50 min-h-0">
+      <div className="flex-1 border border-neutral-200 rounded-2xl overflow-hidden flex flex-col bg-neutral-50 min-h-0 dark:border-neutral-700 dark:bg-neutral-900">
         {readyDeck ? (
           <div className="flex flex-col items-center justify-center h-full gap-6 p-8 text-center">
-            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-2xl">
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-2xl dark:bg-green-900/40">
               ✓
             </div>
             <div>
@@ -80,13 +80,13 @@ export default function CreatePage() {
             <div className="flex gap-3">
               <button
                 onClick={handleSaveDeck}
-                className="bg-neutral-900 text-white text-sm font-medium px-6 py-2.5 rounded-lg hover:bg-neutral-700 transition-colors"
+                className="bg-neutral-900 text-white text-sm font-medium px-6 py-2.5 rounded-lg hover:bg-neutral-700 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
               >
                 Save deck
               </button>
               <Link
                 href="/"
-                className="text-sm text-neutral-500 border border-neutral-200 px-6 py-2.5 rounded-lg hover:border-neutral-400 transition-colors"
+                className="text-sm text-neutral-500 border border-neutral-200 px-6 py-2.5 rounded-lg hover:border-neutral-400 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500"
               >
                 Discard
               </Link>

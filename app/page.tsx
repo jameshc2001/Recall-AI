@@ -24,7 +24,7 @@ export default function HomePage() {
         <h1 className="text-2xl font-semibold tracking-tight">Recall AI</h1>
         <Link
           href="/create"
-          className="bg-neutral-900 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-neutral-700 transition-colors"
+          className="bg-neutral-900 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-neutral-700 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
           + New deck
         </Link>

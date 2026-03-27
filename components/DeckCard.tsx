@@ -19,7 +19,7 @@ export default function DeckCard({ deck, onDelete }: Props) {
   });
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
+    <div className="bg-white border border-neutral-200 rounded-xl p-5 flex flex-col gap-4 hover:shadow-md transition-shadow dark:bg-neutral-800 dark:border-neutral-700">
       <div className="flex-1">
         <h2 className="font-semibold text-lg leading-snug">{deck.title}</h2>
         <p className="text-sm text-neutral-500 mt-1">{deck.topic}</p>
@@ -31,7 +31,7 @@ export default function DeckCard({ deck, onDelete }: Props) {
       <div className="flex gap-2">
         <Link
           href={`/practice/${deck.id}`}
-          className="flex-1 text-center bg-neutral-900 text-white text-sm font-medium py-2 rounded-lg hover:bg-neutral-700 transition-colors"
+          className="flex-1 text-center bg-neutral-900 text-white text-sm font-medium py-2 rounded-lg hover:bg-neutral-700 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
           Practice
         </Link>
@@ -45,7 +45,7 @@ export default function DeckCard({ deck, onDelete }: Props) {
         ) : (
           <button
             onClick={() => setConfirmDelete(true)}
-            className="px-4 text-sm text-neutral-500 border border-neutral-200 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors"
+            className="px-4 text-sm text-neutral-500 border border-neutral-200 rounded-lg hover:border-red-300 hover:text-red-500 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-red-700 dark:hover:text-red-400"
           >
             Delete
           </button>

@@ -12,9 +12,9 @@ export default function ProgressBar({ current, total }: Props) {
         <span>Card {current} of {total}</span>
         <span>{pct}%</span>
       </div>
-      <div className="h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-neutral-200 rounded-full overflow-hidden dark:bg-neutral-700">
         <div
-          className="h-full bg-neutral-900 rounded-full transition-all duration-300"
+          className="h-full bg-neutral-900 rounded-full transition-all duration-300 dark:bg-neutral-100"
           style={{ width: `${pct}%` }}
         />
       </div>

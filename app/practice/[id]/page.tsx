@@ -57,13 +57,13 @@ export default function PracticePage() {
   return (
     <main className="max-w-2xl mx-auto px-4 py-10 flex flex-col h-screen">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors">
+        <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
         </Link>
         <h1 className="text-xl font-semibold truncate">{deck.title}</h1>
       </div>
 
-      <div className="flex-1 border border-neutral-200 rounded-2xl overflow-hidden flex flex-col min-h-0">
+      <div className="flex-1 border border-neutral-200 rounded-2xl overflow-hidden flex flex-col min-h-0 dark:border-neutral-700">
         {phase === "summary" ? (
           <ScoreSummary results={results} deckTitle={deck.title} onRestart={handleRestart} />
         ) : (
@@ -82,13 +82,13 @@ export default function PracticePage() {
                 <div className="flex gap-3 w-full max-w-lg mx-auto">
                   <button
                     onClick={() => handleMark("incorrect")}
-                    className="flex-1 py-3 rounded-xl border-2 border-red-200 text-red-500 font-medium text-sm hover:bg-red-50 transition-colors"
+                    className="flex-1 py-3 rounded-xl border-2 border-red-200 text-red-500 font-medium text-sm hover:bg-red-50 transition-colors dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30"
                   >
                     Incorrect
                   </button>
                   <button
                     onClick={() => handleMark("correct")}
-                    className="flex-1 py-3 rounded-xl border-2 border-green-200 text-green-600 font-medium text-sm hover:bg-green-50 transition-colors"
+                    className="flex-1 py-3 rounded-xl border-2 border-green-200 text-green-600 font-medium text-sm hover:bg-green-50 transition-colors dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30"
                   >
                     Correct
                   </button>

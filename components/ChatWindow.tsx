@@ -34,7 +34,7 @@ export default function ChatWindow({ messages, onSend, isLoading }: Props) {
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-neutral-200 rounded-2xl rounded-bl-sm px-4 py-2.5">
+            <div className="bg-white border border-neutral-200 rounded-2xl rounded-bl-sm px-4 py-2.5 dark:bg-neutral-800 dark:border-neutral-700">
               <span className="flex gap-1">
                 <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:0ms]" />
                 <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full animate-bounce [animation-delay:150ms]" />
@@ -45,19 +45,19 @@ export default function ChatWindow({ messages, onSend, isLoading }: Props) {
         )}
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={handleSubmit} className="border-t border-neutral-200 px-4 py-3 flex gap-2">
+      <form onSubmit={handleSubmit} className="border-t border-neutral-200 px-4 py-3 flex gap-2 dark:border-neutral-700">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type a message..."
           disabled={isLoading}
-          className="flex-1 text-sm bg-neutral-100 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-50"
+          className="flex-1 text-sm bg-neutral-100 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-50 dark:bg-neutral-700 dark:text-neutral-100 dark:focus:ring-neutral-600 dark:placeholder-neutral-500"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="bg-neutral-900 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-40"
+          className="bg-neutral-900 text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
           Send
         </button>

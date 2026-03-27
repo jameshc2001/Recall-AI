@@ -16,7 +16,7 @@ export default function DeckList({ decks, onDelete }: Props) {
         <p className="text-neutral-400 text-lg mb-4">No decks yet.</p>
         <Link
           href="/create"
-          className="bg-neutral-900 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-neutral-700 transition-colors"
+          className="bg-neutral-900 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-neutral-700 transition-colors dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
           Create your first deck
         </Link>
