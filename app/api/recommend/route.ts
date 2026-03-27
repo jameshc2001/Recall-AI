@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "description is required" }, { status: 400 });
   }
 
+  if (description.length > 2000) {
+    return NextResponse.json({ error: "Description is too long" }, { status: 400 });
+  }
+
   try {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",

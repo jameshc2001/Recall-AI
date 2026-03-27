@@ -40,8 +40,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "description is required" }, { status: 400 });
   }
 
+  if (description.length > 2000) {
+    return NextResponse.json({ error: "Description is too long" }, { status: 400 });
+  }
+
   if (!count || typeof count !== "number") {
     return NextResponse.json({ error: "count is required" }, { status: 400 });
+  }
+
+  if (!Number.isInteger(count) || count < 1 || count > 50) {
+    return NextResponse.json({ error: "count must be an integer between 1 and 50" }, { status: 400 });
   }
 
   try {
