@@ -40,7 +40,10 @@ export default function CreatePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: description.trim() }),
       });
-      const data: { count: number; reasoning: string } = await res.json();
+      const data = await res.json();
+      if (!res.ok || typeof data.count !== "number" || typeof data.reasoning !== "string") {
+        throw new Error("Invalid response from recommendation API");
+      }
       setRecommendedCount(data.count);
       setSelectedCount(data.count);
       setReasoning(data.reasoning);
