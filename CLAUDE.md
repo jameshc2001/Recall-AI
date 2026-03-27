@@ -12,11 +12,12 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - **Styling:** Tailwind CSS 3 + autoprefixer, `darkMode: "class"` enabled
 - **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — API calls made server-side only, model `claude-sonnet-4-6`
 - **Storage:** localStorage for saving decks (no database required)
+- **Markdown:** `react-markdown` + `remark-gfm` for rendering card notes (GFM: tables, fenced code, task lists, autolinks)
 
 ## Core Features
 1. **Deck Creation** — Form-based flow: user describes the deck → Claude recommends a count → user picks count → deck is generated
 2. **Card Format** — Simple question / answer pairs (no multiple choice)
-3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong
+3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong; after flipping, user can add/edit a per-card markdown note
 4. **Deck Management** — Save, view, and delete decks; decks persist via localStorage
 5. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
 
@@ -25,6 +26,16 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - Neutral color palette with clear typography
 - Smooth card flip animation
 - Dark mode: inverted primary buttons (`dark:bg-neutral-100 dark:text-neutral-900`), dark surfaces use `neutral-800/900`, borders use `neutral-700`
+
+## Card Notes Implementation Notes
+- Notes are stored as `note?: string` on the `Card` type — optional so existing decks require no migration.
+- `updateDeck` in `storage.ts` replaces a deck by id (distinct from `saveDeck` which appends).
+- `CardNote` component receives `key={card.id}` in the practice page — React unmounts/remounts it on card advance, preventing stale draft state from bleeding between cards.
+- No live preview in the note editor — user writes markdown, clicks Save, sees rendered result. Avoids layout complexity and rendering overhead on each keystroke.
+- `handleSaveNote` in the practice page calls both `setDeck(updatedDeck)` and `updateDeck(updatedDeck)` so the in-memory state stays fresh for restart without re-fetching localStorage.
+- Saving an empty/blank note stores `undefined` (not `""`) to keep stored JSON lean.
+- Markdown dark-mode styling is applied via Tailwind `dark:` classes in `CardNote`'s `components` prop — no separate CSS file or `@tailwindcss/typography` needed.
+- The Edit button on a saved note uses `opacity-0 group-hover:opacity-100` — always in the DOM but only visible on hover.
 
 ## Project Structure
 ```
@@ -36,6 +47,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   /create/page.tsx         — Form-based deck creation flow (steps: form → count → generating → ready)
   /practice/[id]/page.tsx  — Practice mode for a deck
 /components
+  CardNote.tsx             — Per-card note: view/edit markdown notes shown after card flip
   DeckCard.tsx             — Single deck tile (title, count, date, delete/practice)
   DeckList.tsx             — Responsive grid of DeckCards + empty state
   DeckGeneratingLoader.tsx — Animated loader shown while Claude generates the deck
@@ -45,7 +57,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   ThemeToggle.tsx          — Fixed top-right dark/light mode toggle button
 /lib
   types.ts                 — Card, Deck, Message interfaces
-  storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, deleteDeck)
+  storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, updateDeck, deleteDeck)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
 /tests
   /unit
@@ -93,6 +105,7 @@ npm run test:e2e:ui       # Playwright with interactive UI
 ```
 
 ### Config files
+- `@testing-library/jest-dom` is installed and imported in `tests/unit/setup.ts` — `toBeInTheDocument()` and related matchers are available in all unit/component tests.
 - `vitest.config.ts` — jsdom environment, `@` alias, excludes `tests/e2e/`
 - `playwright.config.ts` — Chromium only, baseURL `http://localhost:3000`, auto-starts `next dev`
 
@@ -115,6 +128,7 @@ interface Card {
   id: string;
   question: string;
   answer: string;
+  note?: string;  // Markdown source; undefined when no note exists
 }
 
 interface Deck {

@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Deck } from "@/lib/types";
-import { getDeckById } from "@/lib/storage";
+import { getDeckById, updateDeck } from "@/lib/storage";
 import FlashCard from "@/components/FlashCard";
+import CardNote from "@/components/CardNote";
 import ProgressBar from "@/components/ProgressBar";
 import ScoreSummary from "@/components/ScoreSummary";
 
@@ -35,7 +36,7 @@ export default function PracticePage() {
     setResults(updated);
     if (currentIndex + 1 < deck.cards.length) {
       setIsFlipped(false);
-      // Swap content at the halfway point (250ms) when the card is edge-on
+      // Swap content at the halfway point (125ms) when the card is edge-on
       // and neither face is visible, so the change is imperceptible.
       setTimeout(() => setCurrentIndex((i) => i + 1), 125);
     } else {
@@ -48,6 +49,16 @@ export default function PracticePage() {
     setIsFlipped(false);
     setResults([]);
     setPhase("practicing");
+  }
+
+  function handleSaveNote(cardId: string, note: string) {
+    if (!deck) return;
+    const updatedCards = deck.cards.map((c) =>
+      c.id === cardId ? { ...c, note: note.trim() || undefined } : c
+    );
+    const updatedDeck = { ...deck, cards: updatedCards };
+    setDeck(updatedDeck);
+    updateDeck(updatedDeck);
   }
 
   if (!deck) return null;
@@ -63,14 +74,14 @@ export default function PracticePage() {
         <h1 className="text-xl font-semibold truncate">{deck.title}</h1>
       </div>
 
-      <div className="flex-1 border border-neutral-200 rounded-2xl overflow-hidden flex flex-col min-h-0 dark:border-neutral-700">
+      <div className="flex-1 border border-neutral-200 rounded-2xl flex flex-col min-h-0 dark:border-neutral-700">
         {phase === "summary" ? (
           <ScoreSummary results={results} deckTitle={deck.title} onRestart={handleRestart} />
         ) : (
           <div className="flex flex-col h-full p-6 gap-6">
             <ProgressBar current={currentIndex + 1} total={deck.cards.length} />
 
-            <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            <div className="flex-1 flex flex-col items-center justify-start gap-6 overflow-y-auto pt-2 pb-6">
               <FlashCard
                 question={card.question}
                 answer={card.answer}
@@ -93,6 +104,15 @@ export default function PracticePage() {
                     Correct
                   </button>
                 </div>
+              )}
+
+              {isFlipped && (
+                <CardNote
+                  key={card.id}
+                  cardId={card.id}
+                  initialNote={card.note}
+                  onSave={(note) => handleSaveNote(card.id, note)}
+                />
               )}
             </div>
           </div>

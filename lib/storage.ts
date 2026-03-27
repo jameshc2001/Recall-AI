@@ -26,6 +26,16 @@ export function saveDeck(deck: Deck): void {
   }
 }
 
+export function updateDeck(deck: Deck): void {
+  if (typeof window === "undefined") return;
+  try {
+    const decks = getDecks().map((d) => (d.id === deck.id ? deck : d));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+  } catch {
+    // fail silently
+  }
+}
+
 export function deleteDeck(id: string): void {
   if (typeof window === "undefined") return;
   try {

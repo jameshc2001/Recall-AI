@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getDecks, getDeckById, saveDeck, deleteDeck } from "@/lib/storage";
+import { getDecks, getDeckById, saveDeck, deleteDeck, updateDeck } from "@/lib/storage";
 import type { Deck } from "@/lib/types";
 
 function makeDeck(overrides: Partial<Deck> = {}): Deck {
@@ -63,6 +63,47 @@ describe("storage", () => {
         throw new DOMException("QuotaExceededError");
       });
       expect(() => saveDeck(makeDeck())).not.toThrow();
+    });
+  });
+
+  describe("updateDeck", () => {
+    it("replaces the matching deck in storage", () => {
+      const deck = makeDeck({ id: "1", title: "Original" });
+      saveDeck(deck);
+      updateDeck({ ...deck, title: "Updated" });
+      expect(getDeckById("1")?.title).toBe("Updated");
+    });
+
+    it("persists note field round-trip", () => {
+      const deck = makeDeck({ id: "1" });
+      saveDeck(deck);
+      const updatedCards = [{ ...deck.cards[0], note: "## Hello" }];
+      updateDeck({ ...deck, cards: updatedCards });
+      expect(getDeckById("1")?.cards[0].note).toBe("## Hello");
+    });
+
+    it("does not affect other decks", () => {
+      const deck1 = makeDeck({ id: "1", title: "Deck 1" });
+      const deck2 = makeDeck({ id: "2", title: "Deck 2" });
+      saveDeck(deck1);
+      saveDeck(deck2);
+      updateDeck({ ...deck1, title: "Deck 1 Updated" });
+      expect(getDeckById("2")?.title).toBe("Deck 2");
+    });
+
+    it("is a no-op when the id does not exist (does not append)", () => {
+      const deck = makeDeck({ id: "1" });
+      saveDeck(deck);
+      updateDeck(makeDeck({ id: "nonexistent" }));
+      expect(getDecks()).toHaveLength(1);
+    });
+
+    it("does not throw when localStorage.setItem throws", () => {
+      saveDeck(makeDeck({ id: "1" }));
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("QuotaExceededError");
+      });
+      expect(() => updateDeck(makeDeck({ id: "1" }))).not.toThrow();
     });
   });
 

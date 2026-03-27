@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { seedDecks, STUB_DECK } from "./fixtures";
+import type { Deck } from "@/lib/types";
 
 test.describe("Practice page", () => {
   test.beforeEach(async ({ page }) => {
@@ -76,5 +77,96 @@ test.describe("Practice page", () => {
     await page.getByRole("button", { name: "Practice again" }).click();
     await expect(page.getByText(STUB_DECK.cards[0].question)).toBeVisible();
     await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
+  });
+});
+
+test.describe("Card notes", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+  });
+
+  test("notes panel is not visible before flipping the card", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await expect(page.getByText("Add a note")).not.toBeVisible();
+  });
+
+  test("'Add a note' affordance appears after flipping the card", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await expect(page.getByText("Add a note")).toBeVisible();
+  });
+
+  test("clicking 'Add a note' reveals a textarea", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await expect(page.getByRole("textbox")).toBeVisible();
+  });
+
+  test("typing and saving a note renders it as content", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByRole("textbox").fill("This is my note");
+    await page.getByRole("button", { name: "Save note" }).click();
+    await expect(page.getByRole("textbox")).not.toBeVisible();
+    await expect(page.getByText("This is my note")).toBeVisible();
+  });
+
+  test("saved note persists after navigating away and back", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByRole("textbox").fill("Persistent note content");
+    await page.getByRole("button", { name: "Save note" }).click();
+
+    // Navigate away and return
+    await page.goto("/");
+    await page.goto(`/practice/${STUB_DECK.id}`);
+
+    // Flip the card again — note should load from localStorage
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await expect(page.getByText("Persistent note content")).toBeVisible();
+  });
+
+  test("note editor resets when advancing to the next card", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByRole("textbox").fill("draft text not saved");
+
+    // Advance without saving
+    await page.getByRole("button", { name: "Correct", exact: true }).click();
+    await expect(page.getByText(STUB_DECK.cards[1].question)).toBeVisible({ timeout: 2000 });
+
+    // Flip the next card and check there is no pre-filled draft
+    await page.getByText(STUB_DECK.cards[1].question).click();
+    await page.getByText("Add a note").click();
+    await expect(page.getByRole<HTMLTextAreaElement>("textbox")).toHaveValue("");
+  });
+
+  test("Cancel discards changes and returns to view state", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await page.getByRole("textbox").fill("draft that should be discarded");
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("textbox")).not.toBeVisible();
+    await expect(page.getByText("Add a note")).toBeVisible();
+  });
+
+  test("existing note shown when deck seeded with a note", async ({ page }) => {
+    const deckWithNote: Deck = {
+      ...STUB_DECK,
+      id: "deck-with-note",
+      cards: [
+        { ...STUB_DECK.cards[0], note: "Pre-existing note text" },
+        ...STUB_DECK.cards.slice(1),
+      ],
+    };
+    await seedDecks(page, [deckWithNote]);
+    await page.goto(`/practice/${deckWithNote.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await expect(page.getByText("Pre-existing note text")).toBeVisible();
   });
 });
