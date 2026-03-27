@@ -106,7 +106,7 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Add a note… Markdown supported"
             rows={6}
-            className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-800 dark:text-neutral-100 p-3 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 placeholder:text-neutral-400"
+            className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm text-neutral-800 dark:text-neutral-100 p-3 font-mono resize-y max-h-64 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 placeholder:text-neutral-400"
           />
 
           {/* AI fill section */}
