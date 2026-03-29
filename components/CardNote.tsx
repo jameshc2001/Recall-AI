@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Children, isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -68,7 +68,19 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
         </code>
       );
     },
-    pre: ({ children }) => <>{children}</>,
+    pre: ({ children }) => {
+      const codeChild = Children.toArray(children).find(
+        (c): c is React.ReactElement => isValidElement(c)
+      );
+      if (!codeChild) return <>{children}</>;
+      const className = (codeChild.props as { className?: string }).className ?? "";
+      if (/language-\w+/.test(className)) return <>{children}</>;
+      return (
+        <pre className="overflow-x-auto bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-100 rounded-lg p-3 my-2 text-sm font-mono whitespace-pre">
+          {(codeChild.props as { children: React.ReactNode }).children}
+        </pre>
+      );
+    },
   };
 
   const [aiPrompt, setAiPrompt] = useState("");
