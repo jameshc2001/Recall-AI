@@ -31,3 +31,17 @@ export async function seedDecks(page: import("@playwright/test").Page, decks: De
     localStorage.setItem("recall_decks", JSON.stringify(data));
   }, decks);
 }
+
+/** Seed a practice session in localStorage before navigating. */
+export async function seedSession(
+  page: import("@playwright/test").Page,
+  deckId: string,
+  cardOrder: string[]
+) {
+  await page.addInitScript(
+    ({ key, session }) => {
+      localStorage.setItem(key, JSON.stringify(session));
+    },
+    { key: `recall_session_${deckId}`, session: { currentIndex: 0, results: [], cardOrder } }
+  );
+}

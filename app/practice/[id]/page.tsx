@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Deck } from "@/lib/types";
+import { Card, Deck } from "@/lib/types";
 import { getDeckById, updateDeck, getSession, saveSession, clearSession } from "@/lib/storage";
 import FlashCard from "@/components/FlashCard";
 import CardNote from "@/components/CardNote";
@@ -15,11 +15,21 @@ type Phase = "practicing" | "summary";
 const DEFAULT_WIDTH = 768;
 const MIN_WIDTH = 400;
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function PracticePage() {
   const params = useParams();
   const router = useRouter();
 
   const [deck, setDeck] = useState<Deck | null>(null);
+  const [shuffledCards, setShuffledCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [results, setResults] = useState<Array<"correct" | "incorrect">>([]);
@@ -32,10 +42,22 @@ export default function PracticePage() {
     const found = getDeckById(id);
     if (!found) { router.replace("/"); return; }
     setDeck(found);
+
     const session = getSession(id);
     if (session && session.currentIndex < found.cards.length) {
+      // Restore shuffled order from saved session
+      const ordered = session.cardOrder
+        .map((cardId) => found.cards.find((c) => c.id === cardId))
+        .filter((c): c is Card => c !== undefined);
+      const cards = ordered.length === found.cards.length ? ordered : shuffle(found.cards);
+      setShuffledCards(cards);
       setCurrentIndex(session.currentIndex);
       setResults(session.results);
+    } else {
+      // New session — shuffle and persist the order immediately
+      const cards = shuffle(found.cards);
+      setShuffledCards(cards);
+      saveSession(id, { currentIndex: 0, results: [], cardOrder: cards.map((c) => c.id) });
     }
   }, [params.id, router]);
 
@@ -43,9 +65,9 @@ export default function PracticePage() {
     if (!deck) return;
     const updated = [...results, result];
     setResults(updated);
-    if (currentIndex + 1 < deck.cards.length) {
+    if (currentIndex + 1 < shuffledCards.length) {
       setIsFlipped(false);
-      saveSession(deck.id, { currentIndex: currentIndex + 1, results: updated });
+      saveSession(deck.id, { currentIndex: currentIndex + 1, results: updated, cardOrder: shuffledCards.map((c) => c.id) });
       // Swap content at the halfway point (125ms) when the card is edge-on
       // and neither face is visible, so the change is imperceptible.
       setTimeout(() => setCurrentIndex((i) => i + 1), 125);
@@ -56,7 +78,10 @@ export default function PracticePage() {
   }
 
   function handleRestart() {
-    if (deck) clearSession(deck.id);
+    if (!deck) return;
+    const cards = shuffle(deck.cards);
+    setShuffledCards(cards);
+    saveSession(deck.id, { currentIndex: 0, results: [], cardOrder: cards.map((c) => c.id) });
     setCurrentIndex(0);
     setIsFlipped(false);
     setResults([]);
@@ -92,11 +117,14 @@ export default function PracticePage() {
     const updatedDeck = { ...deck, cards: updatedCards };
     setDeck(updatedDeck);
     updateDeck(updatedDeck);
+    setShuffledCards((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, note: note.trim() || undefined } : c))
+    );
   }
 
-  if (!deck) return null;
+  if (!deck || shuffledCards.length === 0) return null;
 
-  const card = deck.cards[currentIndex];
+  const card = shuffledCards[currentIndex];
 
   return (
     <div
@@ -140,7 +168,7 @@ export default function PracticePage() {
           <ScoreSummary results={results} deckTitle={deck.title} onRestart={handleRestart} />
         ) : (
           <div className="flex flex-col h-full p-6 gap-4">
-            <ProgressBar current={currentIndex + 1} total={deck.cards.length} />
+            <ProgressBar current={currentIndex + 1} total={shuffledCards.length} />
 
             {/* Card + buttons — never scrolls, stays pinned */}
             <div className="shrink-0 flex flex-col items-center gap-4 pt-2">

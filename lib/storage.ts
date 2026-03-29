@@ -5,6 +5,7 @@ const STORAGE_KEY = "recall_decks";
 export interface PracticeSession {
   currentIndex: number;
   results: Array<"correct" | "incorrect">;
+  cardOrder: string[];
 }
 
 function sessionKey(deckId: string) {

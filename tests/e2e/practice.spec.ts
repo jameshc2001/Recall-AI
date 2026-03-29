@@ -1,10 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { seedDecks, STUB_DECK } from "./fixtures";
+import { seedDecks, seedSession, STUB_DECK } from "./fixtures";
 import type { Deck } from "@/lib/types";
+
+const ORIGINAL_ORDER = STUB_DECK.cards.map((c) => c.id);
 
 test.describe("Practice page", () => {
   test.beforeEach(async ({ page }) => {
     await seedDecks(page, [STUB_DECK]);
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
   });
 
   test("redirects to home for an unknown deck id", async ({ page }) => {
@@ -75,7 +78,6 @@ test.describe("Practice page", () => {
     }
 
     await page.getByRole("button", { name: "Practice again" }).click();
-    await expect(page.getByText(STUB_DECK.cards[0].question)).toBeVisible();
     await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
   });
 });
@@ -88,21 +90,60 @@ test.describe("Session persistence", () => {
   test("progress is restored after navigating away and back", async ({ page }) => {
     await page.goto(`/practice/${STUB_DECK.id}`);
 
-    // Mark the first card correct
-    await page.getByText(STUB_DECK.cards[0].question).click();
+    // Find and click whichever card is shown first
+    const questions = STUB_DECK.cards.map((c) => c.question);
+    let firstQuestion: string | null = null;
+    for (const q of questions) {
+      if (await page.getByText(q).isVisible()) { firstQuestion = q; break; }
+    }
+    expect(firstQuestion).not.toBeNull();
+
+    await page.getByText(firstQuestion!).click();
     await page.getByRole("button", { name: "Correct", exact: true }).click();
     await page.waitForTimeout(200);
 
-    // Navigate away
-    await page.goto("/");
+    // Note which card is now showing
+    let secondQuestion: string | null = null;
+    for (const q of questions) {
+      if (await page.getByText(q).isVisible()) { secondQuestion = q; break; }
+    }
+    expect(secondQuestion).not.toBeNull();
 
-    // Return to practice — should resume at card 2
+    // Navigate away and back
+    await page.goto("/");
     await page.goto(`/practice/${STUB_DECK.id}`);
+
+    // Should resume at card 2 showing the same card as before
     await expect(page.getByText(`Card 2 of ${STUB_DECK.cards.length}`)).toBeVisible();
-    await expect(page.getByText(STUB_DECK.cards[1].question)).toBeVisible();
+    await expect(page.getByText(secondQuestion!)).toBeVisible();
+  });
+
+  test("card order is preserved when resuming mid-session", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+
+    // Record the order all 3 cards appear in by marking each one
+    const seen: string[] = [];
+    for (let i = 0; i < STUB_DECK.cards.length - 1; i++) {
+      for (const q of STUB_DECK.cards.map((c) => c.question)) {
+        if (await page.getByText(q).isVisible()) { seen.push(q); break; }
+      }
+      await page.getByText(seen[seen.length - 1]).click();
+      await page.getByRole("button", { name: "Correct", exact: true }).click();
+      await page.waitForTimeout(200);
+    }
+
+    // Navigate away — now at card 3
+    await page.goto("/");
+    await page.goto(`/practice/${STUB_DECK.id}`);
+
+    // Should be at card 3 and show the card we haven't seen yet
+    await expect(page.getByText(`Card 3 of ${STUB_DECK.cards.length}`)).toBeVisible();
+    const remaining = STUB_DECK.cards.map((c) => c.question).filter((q) => !seen.includes(q));
+    await expect(page.getByText(remaining[0])).toBeVisible();
   });
 
   test("'Start over' button appears after marking a card", async ({ page }) => {
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
     await page.goto(`/practice/${STUB_DECK.id}`);
     await expect(page.getByRole("button", { name: "Start over" })).not.toBeVisible();
 
@@ -114,6 +155,7 @@ test.describe("Session persistence", () => {
   });
 
   test("'Start over' resets to card 1 and clears the saved session", async ({ page }) => {
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
     await page.goto(`/practice/${STUB_DECK.id}`);
 
     await page.getByText(STUB_DECK.cards[0].question).click();
@@ -123,13 +165,14 @@ test.describe("Session persistence", () => {
     await page.getByRole("button", { name: "Start over" }).click();
     await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
 
-    // Navigate away and back — session was cleared, so should start fresh again
+    // Navigate away and back — old session was replaced with fresh shuffle at card 1
     await page.goto("/");
     await page.goto(`/practice/${STUB_DECK.id}`);
     await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
   });
 
   test("session is cleared after completing all cards", async ({ page }) => {
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
     await page.goto(`/practice/${STUB_DECK.id}`);
 
     for (const card of STUB_DECK.cards) {
@@ -140,7 +183,7 @@ test.describe("Session persistence", () => {
 
     await expect(page.getByText("Session complete")).toBeVisible();
 
-    // Navigate back to practice — should start fresh
+    // Navigate back to practice — should start fresh at card 1
     await page.goto(`/practice/${STUB_DECK.id}`);
     await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
   });
@@ -149,6 +192,7 @@ test.describe("Session persistence", () => {
 test.describe("Card notes", () => {
   test.beforeEach(async ({ page }) => {
     await seedDecks(page, [STUB_DECK]);
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
   });
 
   test("notes panel is not visible before flipping the card", async ({ page }) => {
@@ -231,6 +275,7 @@ test.describe("Card notes", () => {
       ],
     };
     await seedDecks(page, [deckWithNote]);
+    await seedSession(page, deckWithNote.id, deckWithNote.cards.map((c) => c.id));
     await page.goto(`/practice/${deckWithNote.id}`);
     await page.getByText(STUB_DECK.cards[0].question).click();
     await expect(page.getByText("Pre-existing note text")).toBeVisible();
@@ -240,6 +285,7 @@ test.describe("Card notes", () => {
 test.describe("AI note generation", () => {
   test.beforeEach(async ({ page }) => {
     await seedDecks(page, [STUB_DECK]);
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
   });
 
   test("'Ask AI to fill this note' button appears in edit mode", async ({ page }) => {

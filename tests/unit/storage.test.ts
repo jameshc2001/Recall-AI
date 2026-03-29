@@ -113,20 +113,20 @@ describe("storage", () => {
     });
 
     it("saves and retrieves a session", () => {
-      const session = { currentIndex: 2, results: ["correct", "incorrect"] as const };
+      const session = { currentIndex: 2, results: ["correct", "incorrect"] as const, cardOrder: ["c2", "c3", "c1"] };
       saveSession("deck-1", session);
       expect(getSession("deck-1")).toEqual(session);
     });
 
     it("sessions are scoped per deck id", () => {
-      saveSession("deck-a", { currentIndex: 1, results: ["correct"] });
-      saveSession("deck-b", { currentIndex: 3, results: ["incorrect", "correct", "correct"] });
+      saveSession("deck-a", { currentIndex: 1, results: ["correct"], cardOrder: ["c1", "c2"] });
+      saveSession("deck-b", { currentIndex: 3, results: ["incorrect", "correct", "correct"], cardOrder: ["c3", "c1", "c2"] });
       expect(getSession("deck-a")?.currentIndex).toBe(1);
       expect(getSession("deck-b")?.currentIndex).toBe(3);
     });
 
     it("clearSession removes the session", () => {
-      saveSession("deck-1", { currentIndex: 1, results: ["correct"] });
+      saveSession("deck-1", { currentIndex: 1, results: ["correct"], cardOrder: ["c1"] });
       clearSession("deck-1");
       expect(getSession("deck-1")).toBeNull();
     });
@@ -139,7 +139,7 @@ describe("storage", () => {
       vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
         throw new DOMException("QuotaExceededError");
       });
-      expect(() => saveSession("deck-1", { currentIndex: 0, results: [] })).not.toThrow();
+      expect(() => saveSession("deck-1", { currentIndex: 0, results: [], cardOrder: [] })).not.toThrow();
     });
 
     it("getSession returns null when localStorage contains invalid JSON", () => {
