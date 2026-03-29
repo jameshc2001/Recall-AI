@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getDecks, getDeckById, saveDeck, deleteDeck, updateDeck } from "@/lib/storage";
+import { getDecks, getDeckById, saveDeck, deleteDeck, updateDeck, getSession, saveSession, clearSession } from "@/lib/storage";
 import type { Deck } from "@/lib/types";
 
 function makeDeck(overrides: Partial<Deck> = {}): Deck {
@@ -104,6 +104,47 @@ describe("storage", () => {
         throw new DOMException("QuotaExceededError");
       });
       expect(() => updateDeck(makeDeck({ id: "1" }))).not.toThrow();
+    });
+  });
+
+  describe("getSession / saveSession / clearSession", () => {
+    it("returns null when no session exists", () => {
+      expect(getSession("deck-1")).toBeNull();
+    });
+
+    it("saves and retrieves a session", () => {
+      const session = { currentIndex: 2, results: ["correct", "incorrect"] as const };
+      saveSession("deck-1", session);
+      expect(getSession("deck-1")).toEqual(session);
+    });
+
+    it("sessions are scoped per deck id", () => {
+      saveSession("deck-a", { currentIndex: 1, results: ["correct"] });
+      saveSession("deck-b", { currentIndex: 3, results: ["incorrect", "correct", "correct"] });
+      expect(getSession("deck-a")?.currentIndex).toBe(1);
+      expect(getSession("deck-b")?.currentIndex).toBe(3);
+    });
+
+    it("clearSession removes the session", () => {
+      saveSession("deck-1", { currentIndex: 1, results: ["correct"] });
+      clearSession("deck-1");
+      expect(getSession("deck-1")).toBeNull();
+    });
+
+    it("clearSession is a no-op when no session exists", () => {
+      expect(() => clearSession("deck-1")).not.toThrow();
+    });
+
+    it("saveSession does not throw when localStorage.setItem throws", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("QuotaExceededError");
+      });
+      expect(() => saveSession("deck-1", { currentIndex: 0, results: [] })).not.toThrow();
+    });
+
+    it("getSession returns null when localStorage contains invalid JSON", () => {
+      localStorage.setItem("recall_session_deck-1", "not-json");
+      expect(getSession("deck-1")).toBeNull();
     });
   });
 

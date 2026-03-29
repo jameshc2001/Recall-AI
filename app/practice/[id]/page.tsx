@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Deck } from "@/lib/types";
-import { getDeckById, updateDeck } from "@/lib/storage";
+import { getDeckById, updateDeck, getSession, saveSession, clearSession } from "@/lib/storage";
 import FlashCard from "@/components/FlashCard";
 import CardNote from "@/components/CardNote";
 import ProgressBar from "@/components/ProgressBar";
@@ -32,6 +32,11 @@ export default function PracticePage() {
     const found = getDeckById(id);
     if (!found) { router.replace("/"); return; }
     setDeck(found);
+    const session = getSession(id);
+    if (session && session.currentIndex < found.cards.length) {
+      setCurrentIndex(session.currentIndex);
+      setResults(session.results);
+    }
   }, [params.id, router]);
 
   function handleMark(result: "correct" | "incorrect") {
@@ -40,15 +45,18 @@ export default function PracticePage() {
     setResults(updated);
     if (currentIndex + 1 < deck.cards.length) {
       setIsFlipped(false);
+      saveSession(deck.id, { currentIndex: currentIndex + 1, results: updated });
       // Swap content at the halfway point (125ms) when the card is edge-on
       // and neither face is visible, so the change is imperceptible.
       setTimeout(() => setCurrentIndex((i) => i + 1), 125);
     } else {
+      clearSession(deck.id);
       setPhase("summary");
     }
   }
 
   function handleRestart() {
+    if (deck) clearSession(deck.id);
     setCurrentIndex(0);
     setIsFlipped(false);
     setResults([]);
@@ -116,7 +124,15 @@ export default function PracticePage() {
         <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
         </Link>
-        <h1 className="text-xl font-semibold truncate">{deck.title}</h1>
+        <h1 className="text-xl font-semibold truncate flex-1">{deck.title}</h1>
+        {phase === "practicing" && results.length > 0 && (
+          <button
+            onClick={handleRestart}
+            className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors shrink-0"
+          >
+            Start over
+          </button>
+        )}
       </div>
 
       <div className="flex-1 border border-neutral-200 rounded-2xl flex flex-col min-h-0 dark:border-neutral-700">

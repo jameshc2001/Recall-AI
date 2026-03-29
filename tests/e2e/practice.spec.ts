@@ -80,6 +80,72 @@ test.describe("Practice page", () => {
   });
 });
 
+test.describe("Session persistence", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+  });
+
+  test("progress is restored after navigating away and back", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+
+    // Mark the first card correct
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByRole("button", { name: "Correct", exact: true }).click();
+    await page.waitForTimeout(200);
+
+    // Navigate away
+    await page.goto("/");
+
+    // Return to practice — should resume at card 2
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await expect(page.getByText(`Card 2 of ${STUB_DECK.cards.length}`)).toBeVisible();
+    await expect(page.getByText(STUB_DECK.cards[1].question)).toBeVisible();
+  });
+
+  test("'Start over' button appears after marking a card", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await expect(page.getByRole("button", { name: "Start over" })).not.toBeVisible();
+
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByRole("button", { name: "Correct", exact: true }).click();
+    await page.waitForTimeout(200);
+
+    await expect(page.getByRole("button", { name: "Start over" })).toBeVisible();
+  });
+
+  test("'Start over' resets to card 1 and clears the saved session", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByRole("button", { name: "Correct", exact: true }).click();
+    await page.waitForTimeout(200);
+
+    await page.getByRole("button", { name: "Start over" }).click();
+    await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
+
+    // Navigate away and back — session was cleared, so should start fresh again
+    await page.goto("/");
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
+  });
+
+  test("session is cleared after completing all cards", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+
+    for (const card of STUB_DECK.cards) {
+      await page.getByText(card.question).click();
+      await page.getByRole("button", { name: "Correct", exact: true }).click();
+      await page.waitForTimeout(200);
+    }
+
+    await expect(page.getByText("Session complete")).toBeVisible();
+
+    // Navigate back to practice — should start fresh
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
+  });
+});
+
 test.describe("Card notes", () => {
   test.beforeEach(async ({ page }) => {
     await seedDecks(page, [STUB_DECK]);
