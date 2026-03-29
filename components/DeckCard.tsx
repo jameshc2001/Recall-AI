@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Deck } from "@/lib/types";
+import { getSession, PracticeSession } from "@/lib/storage";
 
 interface Props {
   deck: Deck;
@@ -11,6 +12,11 @@ interface Props {
 
 export default function DeckCard({ deck, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [session, setSession] = useState<PracticeSession | null>(null);
+
+  useEffect(() => {
+    setSession(getSession(deck.id));
+  }, [deck.id]);
 
   const date = new Date(deck.createdAt).toLocaleDateString("en-US", {
     month: "short",
@@ -28,6 +34,20 @@ export default function DeckCard({ deck, onDelete }: Props) {
         <span>{deck.cards.length} cards</span>
         <span>{date}</span>
       </div>
+      {session && session.results.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
+            <span>In progress</span>
+            <span>{session.results.length} / {deck.cards.length} cards</span>
+          </div>
+          <div className="h-1 bg-neutral-100 rounded-full overflow-hidden dark:bg-neutral-700">
+            <div
+              className="h-full bg-amber-500 rounded-full"
+              style={{ width: `${(session.results.length / deck.cards.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="flex gap-2">
         <Link
           href={`/practice/${deck.id}`}

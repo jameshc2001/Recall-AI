@@ -36,12 +36,20 @@ export async function seedDecks(page: import("@playwright/test").Page, decks: De
 export async function seedSession(
   page: import("@playwright/test").Page,
   deckId: string,
-  cardOrder: string[]
+  cardOrder: string[],
+  overrides?: { currentIndex?: number; results?: boolean[] }
 ) {
   await page.addInitScript(
     ({ key, session }) => {
       localStorage.setItem(key, JSON.stringify(session));
     },
-    { key: `recall_session_${deckId}`, session: { currentIndex: 0, results: [], cardOrder } }
+    {
+      key: `recall_session_${deckId}`,
+      session: {
+        currentIndex: overrides?.currentIndex ?? 0,
+        results: overrides?.results ?? [],
+        cardOrder,
+      },
+    }
   );
 }

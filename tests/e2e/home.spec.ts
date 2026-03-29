@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { seedDecks, STUB_DECK } from "./fixtures";
+import { seedDecks, seedSession, STUB_DECK } from "./fixtures";
 
 test.describe("Home page", () => {
   test("shows empty state when no decks exist", async ({ page }) => {
@@ -25,6 +25,24 @@ test.describe("Home page", () => {
     await page.goto("/");
     await page.getByRole("link", { name: /practice/i }).first().click();
     await expect(page).toHaveURL(`/practice/${STUB_DECK.id}`);
+  });
+
+  test("shows in-progress indicator when a session has completed cards", async ({ page }) => {
+    const cardOrder = STUB_DECK.cards.map((c) => c.id);
+    await seedDecks(page, [STUB_DECK]);
+    await seedSession(page, STUB_DECK.id, cardOrder, {
+      currentIndex: 1,
+      results: [true],
+    });
+    await page.goto("/");
+    await expect(page.getByText("In progress")).toBeVisible();
+    await expect(page.getByText(`1 / ${STUB_DECK.cards.length} cards`)).toBeVisible();
+  });
+
+  test("does not show in-progress indicator when no session exists", async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+    await page.goto("/");
+    await expect(page.getByText("In progress")).not.toBeVisible();
   });
 
   test("deletes a deck and it disappears from the list", async ({ page }) => {
