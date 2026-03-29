@@ -2,7 +2,11 @@
 
 ## Instructions for Claude
 
-**At the end of every session, update this file with anything relevant** — new features, design decisions, constraints discovered, patterns established, or anything a future session would benefit from knowing. Keep entries concise and factual. Do not document things already derivable from the code itself (file structure, type definitions, etc.) unless there is non-obvious context behind them.
+**This file MUST be updated at the end of every session.** This is not optional — if you add a feature, fix a non-trivial bug, establish a new pattern, or discover a constraint, update this file before finishing. Future sessions rely on this file for context that cannot be derived from the code alone.
+
+What to update: new features, design decisions, non-obvious implementation choices, constraints discovered, patterns established, localStorage schema changes, new API routes, new dependencies, new test helpers.
+
+What NOT to add: things already obvious from reading the code (type shapes, file names, trivial implementation details).
 
 ## Project Overview
 A clean, minimal web app that uses the Claude API to generate flashcard decks on any topic. The user describes what they want to study; Claude recommends a card count; the user confirms and the deck is generated. Users can save decks and practice them using a flip-card interface where they self-mark correct/incorrect.
@@ -13,6 +17,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — API calls made server-side only, model `claude-sonnet-4-6`
 - **Storage:** localStorage for saving decks (no database required)
 - **Markdown:** `react-markdown` + `remark-gfm` for rendering card notes (GFM: tables, fenced code, task lists, autolinks)
+- **Syntax highlighting:** `react-syntax-highlighter` (Prism) for code blocks inside card notes
 
 ## Core Features
 1. **Deck Creation** — Form-based flow: user describes the deck → Claude recommends a count → user picks count → deck is generated
@@ -21,6 +26,8 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 4. **AI Note Generation** — In note edit mode, "Ask AI to fill this note" opens an inline prompt input; the user describes what they want (e.g. "explain with examples", "add a mnemonic"); Claude writes a rich markdown note via `POST /api/note`
 5. **Deck Management** — Save, view, and delete decks; decks persist via localStorage
 6. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
+7. **Session Persistence** — Practice progress (current card index, results, shuffled card order) persists across page refreshes; session is restored automatically on revisit and cleared on completion
+8. **Card Shuffling** — Cards are shuffled once (Fisher-Yates) at session start; shuffle order is stored in the session so resuming a session continues in the same order
 
 ## Design Principles
 - Clean and minimal UI — no clutter
@@ -42,36 +49,57 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 ```
 /app
   layout.tsx               — Root layout (Geist font, global styles, metadata, ThemeToggle, FOUC script)
+  globals.css              — Global Tailwind imports + custom scrollbar styling (subtle, theme-aware)
   page.tsx                 — Home / deck list
   /api/chat/route.ts       — Deck generation route: takes { description, count }, returns { role, content }
   /api/recommend/route.ts  — Card count recommendation route: takes { description }, returns { count, reasoning }
+  /api/note/route.ts       — AI note generation route: takes { question, answer, prompt }, returns { content }
   /create/page.tsx         — Form-based deck creation flow (steps: form → count → generating → ready)
-  /practice/[id]/page.tsx  — Practice mode for a deck
+  /practice/[id]/page.tsx  — Practice mode: flip cards, mark results, resizable panel, session persistence, notes
 /components
-  CardNote.tsx             — Per-card note: view/edit markdown notes shown after card flip
+  CardNote.tsx             — Per-card note: view/edit markdown notes shown after card flip; AI fill button
   DeckCard.tsx             — Single deck tile (title, count, date, delete/practice)
   DeckList.tsx             — Responsive grid of DeckCards + empty state
-  DeckGeneratingLoader.tsx — Animated loader shown while Claude generates the deck
+  DeckGeneratingLoader.tsx — Animated loader (stacked card animation + rotating humorous status messages)
   FlashCard.tsx            — 3D CSS flip card (question front / answer back)
   ProgressBar.tsx          — current / total progress indicator
   ScoreSummary.tsx         — End-of-session score with restart/home actions
   ThemeToggle.tsx          — Fixed top-right dark/light mode toggle button
 /lib
   types.ts                 — Card, Deck, Message interfaces
-  storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, updateDeck, deleteDeck)
+  storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, updateDeck, deleteDeck, getSession, saveSession, clearSession)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
 /tests
   /unit
-    setup.ts               — jsdom polyfills + localStorage.clear() between tests
+    setup.ts               — jsdom polyfills (crypto.randomUUID) + localStorage.clear() between tests
     deckParser.test.ts     — Unit tests for parseDeckFromMessage
-    storage.test.ts        — Unit tests for localStorage helpers
+    storage.test.ts        — Unit tests for localStorage helpers including session management
   /e2e
-    fixtures.ts            — Shared deck data + seedDecks() helper
+    fixtures.ts            — Shared deck data + seedDecks() and seedSession() helpers
     home.spec.ts           — Home page E2E tests
     create.spec.ts         — Deck creation flow E2E tests (stubs /api/chat and /api/recommend)
-    practice.spec.ts       — Practice session E2E tests
+    practice.spec.ts       — Practice session E2E tests (including session persistence and card notes)
     theme.spec.ts          — Dark mode toggle E2E tests
+/components/__tests__
+  CardNote.test.tsx        — Unit tests for CardNote component (view/edit/save/cancel/AI fill flows)
 ```
+
+## Session Persistence & Card Shuffling Implementation Notes
+- Cards are shuffled once per session using Fisher-Yates at session start. Shuffle order is stored alongside session state so resuming restores the exact same card order rather than re-shuffling.
+- `PracticeSession` interface (in `storage.ts`) stores: `currentIndex`, `results` (array of booleans), `cardOrder` (shuffled card id array).
+- Session key is scoped per deck: `recall_session_{deckId}`. Session is cleared after the final card is marked.
+- On page load, `getSession(deckId)` is called first; if a session exists, the deck is reordered to match `cardOrder` and the progress is restored. If no session, a fresh shuffle is computed and saved immediately.
+- `handleSaveNote` calls both `setDeck` and `updateDeck` to keep in-memory state fresh without re-fetching localStorage, which is important for restart-without-reload.
+
+## Resizable Practice Panel
+- The practice page has left/right drag handles that resize the content panel symmetrically (delta × 2 applied to width).
+- Uses `PointerEvent` handlers with `setPointerCapture` for smooth drag without losing the cursor when moving fast.
+- Min width: 400px; max width: viewport width minus some margin. State is local to the practice page.
+
+## API Input Sanitization
+- All API routes run user input through a `sanitize()` function that strips closing HTML tags (`/<\/[^>]*>/g`) before passing text to Claude.
+- This prevents a class of prompt injection where a malicious description could close a tag and inject instructions.
+- Input lengths are also capped server-side: description 2000 chars, prompt 500 chars, question/answer 2000 chars each.
 
 ## Dark Mode Implementation Notes
 - `tailwind.config.ts` has `darkMode: "class"`
@@ -93,7 +121,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 
 ### Stubbing external calls
 - All E2E tests that touch the create flow **must** stub both `POST /api/chat` and `POST /api/recommend` using `page.route()`. Never make real Claude API calls in tests.
-- Seed localStorage using the `seedDecks()` helper from `tests/e2e/fixtures.ts` rather than navigating through the UI to create data.
+- Seed localStorage using the `seedDecks()` helper from `tests/e2e/fixtures.ts` rather than navigating through the UI to create data. Use `seedSession()` to seed an in-progress practice session.
 - Unit tests that touch `storage.ts` rely on jsdom's localStorage — no mocking needed; it is cleared automatically in `tests/unit/setup.ts`.
 
 ### Commands
@@ -144,14 +172,13 @@ interface Deck {
 The `Message` type (`{ role: "user" | "assistant"; content: string }`) is defined in `lib/types.ts` but is no longer used by the create flow. It may be removed if no future feature needs it.
 
 ## localStorage Schema
-All decks are stored under a single key:
 ```
 Key:   "recall_decks"
 Value: JSON.stringify(Deck[])
-```
 
-Theme preference is stored separately:
-```
+Key:   "recall_session_{deckId}"   — one entry per deck with an active session
+Value: JSON.stringify({ currentIndex: number, results: boolean[], cardOrder: string[] })
+
 Key:   "theme"
 Value: "dark" | "light"
 ```
