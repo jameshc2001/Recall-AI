@@ -1,4 +1,5 @@
 import type { Deck } from "@/lib/types";
+import type { DeckExportFile } from "@/lib/deckIO";
 
 export const STUB_DECK: Deck = {
   id: "test-deck-001",
@@ -31,6 +32,27 @@ export async function seedDecks(page: import("@playwright/test").Page, decks: De
     localStorage.setItem("recall_decks", JSON.stringify(data));
   }, decks);
 }
+
+// BACKWARDS COMPAT: These fixtures represent the v1 export format.
+// Do NOT modify these — they are the canonical representation of v1 files.
+// When adding a new export format version, add new fixtures alongside these.
+export const STUB_EXPORT_FILE: DeckExportFile = {
+  version: 1,
+  exportedAt: "2026-01-01T00:00:00.000Z",
+  deck: STUB_DECK,
+  session: null,
+};
+
+export const STUB_EXPORT_FILE_WITH_SESSION: DeckExportFile = {
+  version: 1,
+  exportedAt: "2026-01-01T00:00:00.000Z",
+  deck: STUB_DECK,
+  session: {
+    currentIndex: 1,
+    results: ["correct"],
+    cardOrder: ["c2", "c1", "c3"],
+  },
+};
 
 /** Seed a practice session in localStorage before navigating. */
 export async function seedSession(

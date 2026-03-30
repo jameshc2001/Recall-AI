@@ -24,7 +24,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 2. **Card Format** — Simple question / answer pairs (no multiple choice)
 3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong; after flipping, user can add/edit a per-card markdown note
 4. **AI Note Generation** — In note edit mode, "Ask AI to fill this note" opens an inline prompt input; the user describes what they want (e.g. "explain with examples", "add a mnemonic"); Claude writes a rich markdown note via `POST /api/note`
-5. **Deck Management** — Save, view, and delete decks; decks persist via localStorage
+5. **Deck Management** — Save, view, delete, import, and export decks; decks persist via localStorage
 6. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
 7. **Session Persistence** — Practice progress (current card index, results, shuffled card order) persists across page refreshes; session is restored automatically on revisit and cleared on completion
 8. **Card Shuffling** — Cards are shuffled once (Fisher-Yates) at session start; shuffle order is stored in the session so resuming a session continues in the same order
@@ -69,17 +69,20 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   types.ts                 — Card, Deck, Message interfaces
   storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, updateDeck, deleteDeck, getSession, saveSession, clearSession)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
+  deckIO.ts                — Import/export logic: buildExportPayload, downloadDeckFile, parseDeckExportFile (version-dispatch), importDeckFromPayload
 /tests
   /unit
     setup.ts               — jsdom polyfills (crypto.randomUUID) + localStorage.clear() between tests
     deckParser.test.ts     — Unit tests for parseDeckFromMessage
     storage.test.ts        — Unit tests for localStorage helpers including session management
+    deckIO.test.ts         — Unit tests for import/export logic; includes backwards compat tests (never delete)
   /e2e
     fixtures.ts            — Shared deck data + seedDecks() and seedSession() helpers
     home.spec.ts           — Home page E2E tests
     create.spec.ts         — Deck creation flow E2E tests (stubs /api/chat and /api/recommend)
     practice.spec.ts       — Practice session E2E tests (including session persistence and card notes)
     theme.spec.ts          — Dark mode toggle E2E tests
+    import-export.spec.ts  — Import/export E2E tests (including backwards compat v1 test)
 /components/__tests__
   CardNote.test.tsx        — Unit tests for CardNote component (view/edit/save/cancel/AI fill flows)
 ```
@@ -90,6 +93,18 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - Session key is scoped per deck: `recall_session_{deckId}`. Session is cleared after the final card is marked.
 - On page load, `getSession(deckId)` is called first; if a session exists, the deck is reordered to match `cardOrder` and the progress is restored. If no session, a fresh shuffle is computed and saved immediately.
 - `handleSaveNote` calls both `setDeck` and `updateDeck` to keep in-memory state fresh without re-fetching localStorage, which is important for restart-without-reload.
+
+## Import / Export
+
+**Backwards compatibility is non-negotiable.** Every version of the export file format must be importable forever. A deck exported today must still import correctly after future format changes.
+
+- `lib/deckIO.ts` is the single source of truth for all export/import logic (`buildExportPayload`, `downloadDeckFile`, `parseDeckExportFile`, `importDeckFromPayload`).
+- Export format is a versioned JSON file: `{ version: 1, exportedAt, deck, session }`. `session` is `null` when no session is active.
+- `parseDeckExportFile` uses a **version-dispatch pattern**: `if (obj.version === 1) return parseV1(obj)`. **Do not modify `parseV1`** — add new `parseVN` functions for new versions. All historical parsers must remain unchanged.
+- On import, only the **deck ID is regenerated** (`crypto.randomUUID()`) to prevent collisions. Card IDs are preserved as-is (they are deck-scoped). The session is stored under the new deck ID.
+- Unit tests labelled `// BACKWARDS COMPAT: v1` in `tests/unit/deckIO.test.ts` must **never be deleted**.
+- E2E fixtures `STUB_EXPORT_FILE` and `STUB_EXPORT_FILE_WITH_SESSION` in `tests/e2e/fixtures.ts` represent the canonical v1 format — **do not modify them**. Add new fixtures alongside them for new versions.
+- Export button is on each `DeckCard`. Import button is on the home page (`app/page.tsx`) next to `+ New deck`. Import errors are shown as a `role="alert"` paragraph below the header.
 
 ## Resizable Practice Panel
 - The practice page has left/right drag handles that resize the content panel symmetrically (delta × 2 applied to width).

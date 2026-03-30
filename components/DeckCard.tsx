@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Deck } from "@/lib/types";
 import { getSession, PracticeSession } from "@/lib/storage";
+import { buildExportPayload, downloadDeckFile } from "@/lib/deckIO";
 
 interface Props {
   deck: Deck;
@@ -12,6 +13,10 @@ interface Props {
 
 export default function DeckCard({ deck, onDelete }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function handleExport() {
+    downloadDeckFile(buildExportPayload(deck, session));
+  }
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
@@ -55,6 +60,12 @@ export default function DeckCard({ deck, onDelete }: Props) {
         >
           Practice
         </Link>
+        <button
+          onClick={handleExport}
+          className="px-4 text-sm text-neutral-500 border border-neutral-200 rounded-lg hover:border-neutral-400 hover:text-neutral-700 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-300"
+        >
+          Export
+        </button>
         {confirmDelete ? (
           <button
             onClick={() => onDelete(deck.id)}
