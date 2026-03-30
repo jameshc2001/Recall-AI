@@ -128,12 +128,12 @@ export default function PracticePage() {
 
   return (
     <div
-      className="relative h-screen"
+      className="relative"
       style={{ width: `min(${panelWidth}px, calc(100vw - 2rem))`, margin: "0 auto" }}
     >
       {/* Left resize handle */}
       <div
-        className="absolute top-0 -left-3 h-full w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
+        className="absolute top-0 -left-3 w-6 cursor-ew-resize group flex items-start justify-center z-10 select-none pt-16"
         onPointerDown={(e) => startResize(e, "left")}
       >
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -141,13 +141,13 @@ export default function PracticePage() {
 
       {/* Right resize handle */}
       <div
-        className="absolute top-0 -right-3 h-full w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
+        className="absolute top-0 -right-3 w-6 cursor-ew-resize group flex items-start justify-center z-10 select-none pt-16"
         onPointerDown={(e) => startResize(e, "right")}
       >
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
-    <main className="px-4 py-10 flex flex-col h-screen">
+    <main className="px-4 py-10 flex flex-col">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
@@ -163,11 +163,11 @@ export default function PracticePage() {
         )}
       </div>
 
-      <div className="flex-1 border border-neutral-200 rounded-2xl flex flex-col min-h-0 dark:border-neutral-700">
+      <div className="border border-neutral-200 rounded-2xl flex flex-col dark:border-neutral-700">
         {phase === "summary" ? (
           <ScoreSummary results={results} deckTitle={deck.title} onRestart={handleRestart} />
         ) : (
-          <div className="flex flex-col h-full p-6 gap-4">
+          <div className="flex flex-col p-6 gap-4">
             <ProgressBar current={currentIndex + 1} total={shuffledCards.length} />
 
             {/* Card + buttons — never scrolls, stays pinned */}
@@ -197,9 +197,9 @@ export default function PracticePage() {
               )}
             </div>
 
-            {/* Note — takes remaining space and scrolls independently */}
+            {/* Note — flows below card, page scrolls */}
             {isFlipped && (
-              <div className="flex-1 overflow-y-auto min-h-0 pb-4 scrollbar-subtle">
+              <div className="pb-4">
                 <CardNote
                   key={card.id}
                   cardId={card.id}
