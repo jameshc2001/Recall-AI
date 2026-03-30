@@ -76,4 +76,12 @@ describe("CardNote", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getByText("Edit")).toBeInTheDocument();
   });
+
+  it("renders a markdown table with visible cell content", () => {
+    const tableNote = "| A | B |\n|---|---|\n| one | two |";
+    renderNote(tableNote);
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "A" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "one" })).toBeInTheDocument();
+  });
 });

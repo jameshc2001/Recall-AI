@@ -81,6 +81,28 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
         </pre>
       );
     },
+    table: ({ children }) => (
+      <div className="overflow-x-auto my-3">
+        <table className="w-full text-sm border-collapse">{children}</table>
+      </div>
+    ),
+    thead: ({ children }) => (
+      <thead className="bg-neutral-100 dark:bg-neutral-800">{children}</thead>
+    ),
+    tbody: ({ children }) => <tbody>{children}</tbody>,
+    tr: ({ children }) => (
+      <tr className="border-b border-neutral-200 dark:border-neutral-700 last:border-0">{children}</tr>
+    ),
+    th: ({ children }) => (
+      <th className="text-left font-semibold px-3 py-2 border border-neutral-200 dark:border-neutral-700">
+        {children}
+      </th>
+    ),
+    td: ({ children }) => (
+      <td className="px-3 py-2 border border-neutral-200 dark:border-neutral-700 align-top">
+        {children}
+      </td>
+    ),
   };
 
   const [aiPrompt, setAiPrompt] = useState("");
