@@ -17,7 +17,7 @@ const LINES = [
   "Questioning every life choice that led to this moment...",
 ];
 
-export default function DeckGeneratingLoader() {
+export default function DeckGeneratingLoader({ count }: { count?: number }) {
   const [lineIndex, setLineIndex] = useState(0);
   const [fade, setFade] = useState(true);
 
@@ -45,6 +45,11 @@ export default function DeckGeneratingLoader() {
         <p className="font-semibold text-neutral-800 dark:text-neutral-100">
           Generating your deck...
         </p>
+        {count !== undefined && count >= 20 && (
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">
+            This may take a minute or two for larger decks.
+          </p>
+        )}
         <p
           className="text-sm text-neutral-500 dark:text-neutral-400 transition-opacity duration-300 min-h-[1.25rem]"
           style={{ opacity: fade ? 1 : 0 }}

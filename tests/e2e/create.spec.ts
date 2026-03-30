@@ -118,6 +118,36 @@ test.describe("Create page", () => {
     await expect(page.getByRole("textbox")).toBeVisible();
   });
 
+  test("shows slow-generation warning when count >= 20", async ({ page }) => {
+    await stubRecommend(page, 20);
+    // Delay the response so the generating screen stays visible long enough to assert
+    await page.route("/api/chat", async (route) => {
+      await new Promise((r) => setTimeout(r, 1000));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ role: "assistant", content: STUB_DECK_RESPONSE_CONTENT }),
+      });
+    });
+    await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /generate deck/i }).click();
+    await expect(page.getByText(/minute/i)).toBeVisible();
+  });
+
+  test("does not show slow-generation warning when count < 20", async ({ page }) => {
+    await stubRecommend(page, 10);
+    await stubGenerate(page, STUB_DECK_RESPONSE_CONTENT);
+    await page.goto("/create");
+    await page.getByRole("textbox").fill("JavaScript basics");
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(REASONING)).toBeVisible();
+    await page.getByRole("button", { name: /generate deck/i }).click();
+    await expect(page.getByText(/minute/i)).not.toBeVisible();
+  });
+
   test("shows error when recommend API fails", async ({ page }) => {
     await page.route("/api/recommend", (route) => route.abort());
     await page.goto("/create");

@@ -201,7 +201,7 @@ export default function CreatePage() {
           className="border border-neutral-200 rounded-2xl bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
           style={{ height: "360px" }}
         >
-          <DeckGeneratingLoader />
+          <DeckGeneratingLoader count={selectedCount ?? undefined} />
         </div>
       )}
 
