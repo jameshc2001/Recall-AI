@@ -52,14 +52,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "count is required" }, { status: 400 });
   }
 
-  if (!Number.isInteger(count) || count < 1 || count > 50) {
-    return NextResponse.json({ error: "count must be an integer between 1 and 50" }, { status: 400 });
+  if (!Number.isInteger(count) || count < 1 || count > 200) {
+    return NextResponse.json({ error: "count must be an integer between 1 and 200" }, { status: 400 });
   }
 
   try {
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
       messages: [
         { role: "user", content: `<user_description>${sanitize(description)}</user_description>\n\nGenerate exactly ${count} cards.` },
