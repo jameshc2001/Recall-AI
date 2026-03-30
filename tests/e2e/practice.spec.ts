@@ -282,6 +282,50 @@ test.describe("Card notes", () => {
   });
 });
 
+test.describe("Scrollable layout", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
+  });
+
+  test("page is scrollable after note appears (note does not use its own scroll container)", async ({ page }) => {
+    // Seed a deck with a long note so there is enough content to scroll
+    const deckWithNote: Deck = {
+      ...STUB_DECK,
+      id: "deck-scroll-test",
+      cards: [
+        {
+          ...STUB_DECK.cards[0],
+          note: Array(40).fill("This is a line of note content.").join("\n"),
+        },
+        ...STUB_DECK.cards.slice(1),
+      ],
+    };
+    await seedDecks(page, [deckWithNote]);
+    await seedSession(page, deckWithNote.id, deckWithNote.cards.map((c) => c.id));
+
+    await page.goto(`/practice/${deckWithNote.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+
+    // The note should be visible in the document
+    await expect(page.getByText("This is a line of note content.").first()).toBeVisible();
+
+    // The page (window) should be scrollable — content exceeds the viewport
+    const pageIsScrollable = await page.evaluate(
+      () => document.documentElement.scrollHeight > document.documentElement.clientHeight
+    );
+    expect(pageIsScrollable).toBe(true);
+
+    // The note wrapper div should NOT have overflow-y-auto (no independent scroll box)
+    const noteHasOwnScroll = await page.evaluate(() => {
+      const noteEl = document.querySelector("[data-testid='note-wrapper']");
+      if (!noteEl) return false;
+      return getComputedStyle(noteEl).overflowY === "auto" || getComputedStyle(noteEl).overflowY === "scroll";
+    });
+    expect(noteHasOwnScroll).toBe(false);
+  });
+});
+
 test.describe("AI note generation", () => {
   test.beforeEach(async ({ page }) => {
     await seedDecks(page, [STUB_DECK]);

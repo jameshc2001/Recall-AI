@@ -133,7 +133,7 @@ export default function PracticePage() {
     >
       {/* Left resize handle */}
       <div
-        className="absolute top-0 -left-3 w-6 cursor-ew-resize group flex items-start justify-center z-10 select-none pt-16"
+        className="absolute top-0 -left-3 h-screen w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
         onPointerDown={(e) => startResize(e, "left")}
       >
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -141,7 +141,7 @@ export default function PracticePage() {
 
       {/* Right resize handle */}
       <div
-        className="absolute top-0 -right-3 w-6 cursor-ew-resize group flex items-start justify-center z-10 select-none pt-16"
+        className="absolute top-0 -right-3 h-screen w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
         onPointerDown={(e) => startResize(e, "right")}
       >
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -199,7 +199,7 @@ export default function PracticePage() {
 
             {/* Note — flows below card, page scrolls */}
             {isFlipped && (
-              <div className="pb-4">
+              <div className="pb-4" data-testid="note-wrapper">
                 <CardNote
                   key={card.id}
                   cardId={card.id}
