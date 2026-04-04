@@ -197,8 +197,8 @@ npm run test:e2e:ui       # Playwright with interactive UI
 - `ANTHROPIC_API_KEY` — Claude API key. Stored in `.env.local`, never exposed to the client.
 - `ADMIN_PASSWORD` — Login password. Must be set in Vercel env vars (and `.env.local` for local dev).
 - `SESSION_SECRET` — 32+ character random string for signing iron-session cookies. Rotate to invalidate all sessions.
-- `UPSTASH_REDIS_REST_URL` — Injected automatically by Vercel when Upstash Redis integration is connected.
-- `UPSTASH_REDIS_REST_TOKEN` — Injected automatically by Vercel when Upstash Redis integration is connected.
+- `KV_REST_API_URL` — Injected automatically by Vercel when Upstash Redis integration is connected.
+- `KV_REST_API_TOKEN` — Injected automatically by Vercel when Upstash Redis integration is connected.
 
 ## Deployment (Vercel)
 1. Push to GitHub, connect repo to Vercel (Hobby plan — free)
