@@ -79,7 +79,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   session.ts               — iron-session config: SessionData interface, sessionOptions (cookie name, TTL)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
   deckIO.ts                — Import/export logic: buildExportPayload, downloadDeckFile, parseDeckExportFile (version-dispatch), importDeckFromPayload
-middleware.ts              — Auth gate: checks iron-session cookie on every request; whitelists /login and /api/auth/*
+proxy.ts                   — Auth gate: checks iron-session cookie on every request; whitelists /login and /api/auth/*
 /tests
   /unit
     setup.ts               — jsdom polyfills (crypto.randomUUID) + localStorage.clear() between tests
@@ -176,7 +176,7 @@ npm run test:e2e:ui       # Playwright with interactive UI
 ## Authentication & Security
 
 ### How it works
-- `middleware.ts` runs on every request. It whitelists `/login` and `/api/auth/*`; all other routes (including all AI endpoints) require a valid `iron-session` cookie.
+- `proxy.ts` runs on every request (Next.js 16 renamed `middleware.ts` → `proxy.ts`). It whitelists `/login` and `/api/auth/*`; all other routes (including all AI endpoints) require a valid `iron-session` cookie.
 - Page requests without a valid cookie → redirect to `/login`.
 - API requests without a valid cookie → `401 Unauthorized`.
 - This means **no one can hit the AI endpoints without being logged in** — protects Anthropic API tokens.
