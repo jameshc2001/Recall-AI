@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Deck } from "@/lib/types";
 import { parseDeckFromMessage } from "@/lib/deckParser";
-import { saveDeck } from "@/lib/storage";
+import { saveDeck } from "@/lib/clientStorage";
 import DeckGeneratingLoader from "@/components/DeckGeneratingLoader";
 
 type Step = "form" | "count" | "generating" | "ready";
@@ -83,9 +83,9 @@ export default function CreatePage() {
     }
   }
 
-  function handleSaveDeck() {
+  async function handleSaveDeck() {
     if (!readyDeck) return;
-    saveDeck(readyDeck);
+    await saveDeck(readyDeck);
     router.push("/");
   }
 

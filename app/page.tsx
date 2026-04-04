@@ -2,23 +2,30 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Deck } from "@/lib/types";
-import { getDecks, deleteDeck, saveDeck, saveSession } from "@/lib/storage";
-import { parseDeckExportFile, importDeckFromPayload } from "@/lib/deckIO";
+import { getDecks, deleteDeck, saveDeck, saveSession } from "@/lib/clientStorage";
+import { parseDeckExportFile } from "@/lib/deckIO";
 import DeckList from "@/components/DeckList";
 
 export default function HomePage() {
+  const router = useRouter();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [importError, setImportError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
+
   useEffect(() => {
-    setDecks(getDecks());
+    getDecks().then(setDecks);
   }, []);
 
-  function handleDelete(id: string) {
-    deleteDeck(id);
-    setDecks(getDecks());
+  async function handleDelete(id: string) {
+    await deleteDeck(id);
+    setDecks(await getDecks());
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -38,8 +45,12 @@ export default function HomePage() {
       setImportError(result.error);
       return;
     }
-    importDeckFromPayload(result.data, { saveDeck, saveSession });
-    setDecks(getDecks());
+    const { deck, session } = result.data;
+    const newId = crypto.randomUUID();
+    const newDeck = { ...deck, id: newId };
+    await saveDeck(newDeck);
+    if (session) await saveSession(newId, session);
+    setDecks(await getDecks());
   }
 
   return (
@@ -54,6 +65,12 @@ export default function HomePage() {
             className="hidden"
             onChange={handleImport}
           />
+          <button
+            onClick={handleLogout}
+            className="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors px-2 py-2"
+          >
+            Log out
+          </button>
           <button
             onClick={() => importInputRef.current?.click()}
             className="text-sm text-neutral-600 border border-neutral-200 px-4 py-2 rounded-lg hover:border-neutral-400 hover:text-neutral-800 transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:text-neutral-300"

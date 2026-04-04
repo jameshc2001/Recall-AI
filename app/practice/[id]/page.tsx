@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, Deck } from "@/lib/types";
-import { getDeckById, updateDeck, getSession, saveSession, clearSession } from "@/lib/storage";
+import { getDeckById, updateDeck, getSession, saveSession, clearSession } from "@/lib/clientStorage";
 import FlashCard from "@/components/FlashCard";
 import CardNote from "@/components/CardNote";
 import ProgressBar from "@/components/ProgressBar";
@@ -37,28 +37,31 @@ export default function PracticePage() {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
 
   useEffect(() => {
-    const id = typeof params.id === "string" ? params.id : params.id?.[0];
-    if (!id) { router.replace("/"); return; }
-    const found = getDeckById(id);
-    if (!found) { router.replace("/"); return; }
-    setDeck(found);
+    async function init() {
+      const id = typeof params.id === "string" ? params.id : params.id?.[0];
+      if (!id) { router.replace("/"); return; }
+      const found = await getDeckById(id);
+      if (!found) { router.replace("/"); return; }
+      setDeck(found);
 
-    const session = getSession(id);
-    if (session && session.currentIndex < found.cards.length) {
-      // Restore shuffled order from saved session
-      const ordered = session.cardOrder
-        .map((cardId) => found.cards.find((c) => c.id === cardId))
-        .filter((c): c is Card => c !== undefined);
-      const cards = ordered.length === found.cards.length ? ordered : shuffle(found.cards);
-      setShuffledCards(cards);
-      setCurrentIndex(session.currentIndex);
-      setResults(session.results);
-    } else {
-      // New session — shuffle and persist the order immediately
-      const cards = shuffle(found.cards);
-      setShuffledCards(cards);
-      saveSession(id, { currentIndex: 0, results: [], cardOrder: cards.map((c) => c.id) });
+      const session = await getSession(id);
+      if (session && session.currentIndex < found.cards.length) {
+        // Restore shuffled order from saved session
+        const ordered = session.cardOrder
+          .map((cardId) => found.cards.find((c) => c.id === cardId))
+          .filter((c): c is Card => c !== undefined);
+        const cards = ordered.length === found.cards.length ? ordered : shuffle(found.cards);
+        setShuffledCards(cards);
+        setCurrentIndex(session.currentIndex);
+        setResults(session.results);
+      } else {
+        // New session — shuffle and persist the order immediately
+        const cards = shuffle(found.cards);
+        setShuffledCards(cards);
+        saveSession(id, { currentIndex: 0, results: [], cardOrder: cards.map((c) => c.id) });
+      }
     }
+    init();
   }, [params.id, router]);
 
   function handleMark(result: "correct" | "incorrect") {
@@ -67,6 +70,7 @@ export default function PracticePage() {
     setResults(updated);
     if (currentIndex + 1 < shuffledCards.length) {
       setIsFlipped(false);
+      // Fire-and-forget: don't block the UI on the network save
       saveSession(deck.id, { currentIndex: currentIndex + 1, results: updated, cardOrder: shuffledCards.map((c) => c.id) });
       // Swap content at the halfway point (125ms) when the card is edge-on
       // and neither face is visible, so the change is imperceptible.
@@ -81,6 +85,7 @@ export default function PracticePage() {
     if (!deck) return;
     const cards = shuffle(deck.cards);
     setShuffledCards(cards);
+    // Fire-and-forget: session save doesn't need to block UI
     saveSession(deck.id, { currentIndex: 0, results: [], cardOrder: cards.map((c) => c.id) });
     setCurrentIndex(0);
     setIsFlipped(false);
@@ -116,6 +121,7 @@ export default function PracticePage() {
     );
     const updatedDeck = { ...deck, cards: updatedCards };
     setDeck(updatedDeck);
+    // Fire-and-forget: in-memory state is already updated above
     updateDeck(updatedDeck);
     setShuffledCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, note: note.trim() || undefined } : c))

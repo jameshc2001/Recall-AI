@@ -15,7 +15,8 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - **Framework:** Next.js 16 (App Router) with TypeScript
 - **Styling:** Tailwind CSS 3 + autoprefixer, `darkMode: "class"` enabled
 - **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — API calls made server-side only, model `claude-sonnet-4-6`
-- **Storage:** localStorage for saving decks (no database required)
+- **Storage:** Upstash Redis (`@upstash/redis`) — all deck/session data persisted server-side
+- **Auth:** `iron-session` v8 — single-password login, signed HTTP-only cookie, 30-day TTL
 - **Markdown:** `react-markdown` + `remark-gfm` for rendering card notes (GFM: tables, fenced code, task lists, autolinks)
 - **Syntax highlighting:** `react-syntax-highlighter` (Prism) for code blocks inside card notes
 
@@ -24,7 +25,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 2. **Card Format** — Simple question / answer pairs (no multiple choice)
 3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong; after flipping, user can add/edit a per-card markdown note
 4. **AI Note Generation** — In note edit mode, "Ask AI to fill this note" opens an inline prompt input; the user describes what they want (e.g. "explain with examples", "add a mnemonic"); Claude writes a rich markdown note via `POST /api/note`
-5. **Deck Management** — Save, view, delete, import, and export decks; decks persist via localStorage
+5. **Deck Management** — Save, view, delete, import, and export decks; decks persist via Upstash Redis (synced across devices)
 6. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
 7. **Session Persistence** — Practice progress (current card index, results, shuffled card order) persists across page refreshes; session is restored automatically on revisit and cleared on completion
 8. **Card Shuffling** — Cards are shuffled once (Fisher-Yates) at session start; shuffle order is stored in the session so resuming a session continues in the same order
@@ -50,10 +51,15 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 /app
   layout.tsx               — Root layout (Geist font, global styles, metadata, ThemeToggle, FOUC script)
   globals.css              — Global Tailwind imports + custom scrollbar styling (subtle, theme-aware)
-  page.tsx                 — Home / deck list
+  page.tsx                 — Home / deck list (includes Log out button)
+  /login/page.tsx          — Password login form; calls /api/auth/login; redirects to / on success
+  /api/auth/login/route.ts — POST: validates ADMIN_PASSWORD, sets iron-session cookie
+  /api/auth/logout/route.ts— POST: destroys iron-session cookie
   /api/chat/route.ts       — Deck generation route: takes { description, count }, returns { role, content }
   /api/recommend/route.ts  — Card count recommendation route: takes { description }, returns { count, reasoning }
   /api/note/route.ts       — AI note generation route: takes { question, answer, prompt }, returns { content }
+  /api/store/decks/route.ts           — GET/POST/DELETE deck data from Redis
+  /api/store/sessions/[id]/route.ts   — GET/PUT/DELETE session data from Redis
   /create/page.tsx         — Form-based deck creation flow (steps: form → count → generating → ready)
   /practice/[id]/page.tsx  — Practice mode: flip cards, mark results, resizable panel, session persistence, notes
 /components
@@ -67,15 +73,21 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   ThemeToggle.tsx          — Fixed top-right dark/light mode toggle button
 /lib
   types.ts                 — Card, Deck, Message interfaces
-  storage.ts               — localStorage helpers (getDecks, getDeckById, saveDeck, updateDeck, deleteDeck, getSession, saveSession, clearSession)
+  storage.ts               — localStorage helpers + PracticeSession type (kept for unit tests only)
+  clientStorage.ts         — Async client-side storage: calls /api/store/* routes (used by pages)
+  serverStorage.ts         — Server-side Redis operations via @upstash/redis (used by store routes)
+  session.ts               — iron-session config: SessionData interface, sessionOptions (cookie name, TTL)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
   deckIO.ts                — Import/export logic: buildExportPayload, downloadDeckFile, parseDeckExportFile (version-dispatch), importDeckFromPayload
+middleware.ts              — Auth gate: checks iron-session cookie on every request; whitelists /login and /api/auth/*
 /tests
   /unit
     setup.ts               — jsdom polyfills (crypto.randomUUID) + localStorage.clear() between tests
     deckParser.test.ts     — Unit tests for parseDeckFromMessage
     storage.test.ts        — Unit tests for localStorage helpers including session management
     deckIO.test.ts         — Unit tests for import/export logic; includes backwards compat tests (never delete)
+    serverStorage.test.ts  — Unit tests for serverStorage; mocks @upstash/redis with a class-based mock
+    auth.test.ts           — Unit tests for /api/auth/login; mocks iron-session and next/headers
   /e2e
     fixtures.ts            — Shared deck data + seedDecks() and seedSession() helpers
     home.spec.ts           — Home page E2E tests
@@ -90,9 +102,10 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 ## Session Persistence & Card Shuffling Implementation Notes
 - Cards are shuffled once per session using Fisher-Yates at session start. Shuffle order is stored alongside session state so resuming restores the exact same card order rather than re-shuffling.
 - `PracticeSession` interface (in `storage.ts`) stores: `currentIndex`, `results` (array of booleans), `cardOrder` (shuffled card id array).
-- Session key is scoped per deck: `recall_session_{deckId}`. Session is cleared after the final card is marked.
+- Session key is scoped per deck: `recall_session_{deckId}` (localStorage) / `session:{deckId}` (Redis). Session is cleared after the final card is marked.
 - On page load, `getSession(deckId)` is called first; if a session exists, the deck is reordered to match `cardOrder` and the progress is restored. If no session, a fresh shuffle is computed and saved immediately.
-- `handleSaveNote` calls both `setDeck` and `updateDeck` to keep in-memory state fresh without re-fetching localStorage, which is important for restart-without-reload.
+- `handleSaveNote` calls both `setDeck` and `updateDeck` to keep in-memory state fresh. `updateDeck` is fire-and-forget (async, not awaited) since state is already updated in memory.
+- `saveSession` and `clearSession` in the practice page are also fire-and-forget — UI state updates are not blocked on the network save.
 
 ## Import / Export
 
@@ -138,6 +151,8 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - All E2E tests that touch the create flow **must** stub both `POST /api/chat` and `POST /api/recommend` using `page.route()`. Never make real Claude API calls in tests.
 - Seed localStorage using the `seedDecks()` helper from `tests/e2e/fixtures.ts` rather than navigating through the UI to create data. Use `seedSession()` to seed an in-progress practice session.
 - Unit tests that touch `storage.ts` rely on jsdom's localStorage — no mocking needed; it is cleared automatically in `tests/unit/setup.ts`.
+- Unit tests for `serverStorage.ts` mock `@upstash/redis` using a class-based mock (a `MockRedis` class, not `vi.fn()`) — `vi.fn()` cannot be used as a constructor.
+- Unit tests for the auth route mock both `iron-session` (`getIronSession` returns `{ isLoggedIn, save }`) and `next/headers` (`cookies` returns a minimal cookie store).
 
 ### Commands
 ```bash
@@ -158,12 +173,44 @@ npm run test:e2e:ui       # Playwright with interactive UI
 - `autoprefixer` must be installed as a dev dependency alongside Tailwind (not included by default when bootstrapping manually).
 - Project was bootstrapped manually rather than via `create-next-app` due to the directory name constraint.
 
+## Authentication & Security
+
+### How it works
+- `middleware.ts` runs on every request. It whitelists `/login` and `/api/auth/*`; all other routes (including all AI endpoints) require a valid `iron-session` cookie.
+- Page requests without a valid cookie → redirect to `/login`.
+- API requests without a valid cookie → `401 Unauthorized`.
+- This means **no one can hit the AI endpoints without being logged in** — protects Anthropic API tokens.
+
+### iron-session cookie
+- Cookie name: `recall_ai_session`. Encrypted and signed with `SESSION_SECRET`.
+- HTTP-only, `sameSite: "lax"`, `secure: true` in production. 30-day TTL.
+- `lib/session.ts` is the single source of truth for session config — import `sessionOptions` from there.
+- In route handlers: use `getIronSession(await cookies(), sessionOptions)` (App Router form).
+- In middleware: use `getIronSession(request, response, sessionOptions)` (Web Request/Response form).
+
+### Future multi-user migration path
+- Auth: swap `ADMIN_PASSWORD` check in `/api/auth/login` for an OAuth or credentials provider
+- Storage: prefix all Redis keys with `user:{userId}:` (one line per function in `serverStorage.ts`)
+- The middleware/API route architecture already supports this — no structural changes needed
+
 ## Environment Variables
 - `ANTHROPIC_API_KEY` — Claude API key. Stored in `.env.local`, never exposed to the client.
+- `ADMIN_PASSWORD` — Login password. Must be set in Vercel env vars (and `.env.local` for local dev).
+- `SESSION_SECRET` — 32+ character random string for signing iron-session cookies. Rotate to invalidate all sessions.
+- `UPSTASH_REDIS_REST_URL` — Injected automatically by Vercel when Upstash Redis integration is connected.
+- `UPSTASH_REDIS_REST_TOKEN` — Injected automatically by Vercel when Upstash Redis integration is connected.
+
+## Deployment (Vercel)
+1. Push to GitHub, connect repo to Vercel (Hobby plan — free)
+2. In Vercel dashboard → Integrations → search "Upstash Redis" → connect. Injects `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` automatically.
+3. Set `ADMIN_PASSWORD` and `SESSION_SECRET` in Vercel → Settings → Environment Variables
+4. Deploy. Visiting the URL will redirect to `/login`.
 
 ## Key Constraints
 - The Anthropic API key must **never** appear in client-side code. All Claude calls go through `/app/api/` routes.
-- Do not use a database — localStorage is sufficient for this project.
+- `SESSION_SECRET` must be at least 32 characters (iron-session requirement).
+- Do not use a database — Upstash Redis is sufficient for this single-user project.
+- `lib/storage.ts` (localStorage) is kept **only** for unit tests. Pages must import from `lib/clientStorage.ts`.
 - Keep dependencies minimal.
 
 ## TypeScript Types
@@ -186,16 +233,25 @@ interface Deck {
 
 The `Message` type (`{ role: "user" | "assistant"; content: string }`) is defined in `lib/types.ts` but is no longer used by the create flow. It may be removed if no future feature needs it.
 
-## localStorage Schema
+## Storage Schema
+
+### Redis (Upstash — server-side, source of truth for decks/sessions)
 ```
-Key:   "recall_decks"
-Value: JSON.stringify(Deck[])
+Key:   "decks"
+Value: JSON array of Deck objects
 
-Key:   "recall_session_{deckId}"   — one entry per deck with an active session
-Value: JSON.stringify({ currentIndex: number, results: boolean[], cardOrder: string[] })
+Key:   "session:{deckId}"   — one entry per deck with an active session
+Value: JSON object { currentIndex, results, cardOrder }
+```
 
+### localStorage (browser — theme only, kept for unit tests)
+```
 Key:   "theme"
 Value: "dark" | "light"
+
+# These keys are still used by unit tests via jsdom but NOT by the running app:
+Key:   "recall_decks"
+Key:   "recall_session_{deckId}"
 ```
 
 ## Claude API Routes
