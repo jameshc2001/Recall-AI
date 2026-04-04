@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Deck } from "@/lib/types";
-import { getSession, PracticeSession } from "@/lib/storage";
+import { getSession } from "@/lib/clientStorage";
+import { PracticeSession } from "@/lib/storage";
 import { buildExportPayload, downloadDeckFile } from "@/lib/deckIO";
 
 interface Props {
@@ -20,7 +21,7 @@ export default function DeckCard({ deck, onDelete }: Props) {
   const [session, setSession] = useState<PracticeSession | null>(null);
 
   useEffect(() => {
-    setSession(getSession(deck.id));
+    getSession(deck.id).then(setSession);
   }, [deck.id]);
 
   const date = new Date(deck.createdAt).toLocaleDateString("en-US", {
