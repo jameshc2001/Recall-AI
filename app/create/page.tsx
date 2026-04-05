@@ -197,17 +197,14 @@ export default function CreatePage() {
       )}
 
       {step === "generating" && (
-        <div
-          className="border border-neutral-200 rounded-2xl bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900"
-          style={{ height: "360px" }}
-        >
+        <div className="border border-neutral-200 rounded-2xl bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 h-[280px] sm:h-[360px]">
           <DeckGeneratingLoader count={selectedCount ?? undefined} />
         </div>
       )}
 
       {step === "ready" && readyDeck && (
         <div className="border border-neutral-200 rounded-2xl bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
-          <div className="flex flex-col items-center justify-center gap-6 p-12 text-center">
+          <div className="flex flex-col items-center justify-center gap-6 p-6 sm:p-12 text-center">
             <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-2xl dark:bg-green-900/40">
               ✓
             </div>
