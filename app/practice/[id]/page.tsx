@@ -137,17 +137,17 @@ export default function PracticePage() {
       className="relative"
       style={{ width: `min(${panelWidth}px, calc(100vw - 2rem))`, margin: "0 auto" }}
     >
-      {/* Left resize handle */}
+      {/* Left resize handle — hidden on mobile */}
       <div
-        className="absolute top-0 -left-3 h-screen w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
+        className="hidden md:flex absolute top-0 -left-3 h-screen w-6 cursor-ew-resize group items-center justify-center z-10 select-none"
         onPointerDown={(e) => startResize(e, "left")}
       >
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
-      {/* Right resize handle */}
+      {/* Right resize handle — hidden on mobile */}
       <div
-        className="absolute top-0 -right-3 h-screen w-6 cursor-ew-resize group flex items-center justify-center z-10 select-none"
+        className="hidden md:flex absolute top-0 -right-3 h-screen w-6 cursor-ew-resize group items-center justify-center z-10 select-none"
         onPointerDown={(e) => startResize(e, "right")}
       >
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
