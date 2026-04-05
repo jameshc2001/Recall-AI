@@ -123,6 +123,14 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
 - The practice page has left/right drag handles that resize the content panel symmetrically (delta × 2 applied to width).
 - Uses `PointerEvent` handlers with `setPointerCapture` for smooth drag without losing the cursor when moving fast.
 - Min width: 400px; max width: viewport width minus some margin. State is local to the practice page.
+- Resize handles use `hidden md:flex` — hidden on screens narrower than 768px (mobile). The panel width is still capped to `calc(100vw - 2rem)` via the inline `min()` expression, so mobile layout is correct without the handles.
+
+## Mobile Responsiveness
+- All responsive sizing uses Tailwind breakpoint prefixes (`sm:` = ≥640px, `md:` = ≥768px) — desktop appearance is unchanged.
+- `FlashCard`: responsive height (`h-[220px] sm:h-[260px]`), padding (`p-4 sm:p-8`), text size (`text-base sm:text-lg`).
+- `ScoreSummary`: responsive padding, gaps, score number sizes; buttons stack vertically on mobile (`flex-col sm:flex-row`).
+- `app/create/page.tsx`: generating loader uses `h-[280px] sm:h-[360px]`; ready state uses `p-6 sm:p-12` — no inline `style` props.
+- `app/page.tsx`: header uses `flex-wrap` so the title + action buttons wrap gracefully on narrow screens.
 
 ## API Input Sanitization
 - All API routes run user input through a `sanitize()` function that strips closing HTML tags (`/<\/[^>]*>/g`) before passing text to Claude.
