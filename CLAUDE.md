@@ -210,7 +210,7 @@ npm run test:e2e:ui       # Playwright with interactive UI
 
 ## Deployment (Vercel)
 1. Push to GitHub, connect repo to Vercel (Hobby plan — free)
-2. In Vercel dashboard → Integrations → search "Upstash Redis" → connect. Injects `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` automatically.
+2. In Vercel dashboard → Integrations → search "Upstash Redis" → connect. Injects `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically (these are the names `lib/serverStorage.ts` reads).
 3. Set `ADMIN_PASSWORD` and `SESSION_SECRET` in Vercel → Settings → Environment Variables
 4. Deploy. Visiting the URL will redirect to `/login`.
 
