@@ -62,3 +62,36 @@ describe("POST /api/chat — count validation", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("POST /api/chat — Claude request and response", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockCreate.mockReset();
+  });
+
+  it("calls claude-sonnet-5-5 at low effort", async () => {
+    mockCreate.mockResolvedValue({ content: [{ type: "text", text: "deck" }] });
+    await makeRequest({ description: "test topic", count: 10 });
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.model).toBe("claude-sonnet-5-5");
+    expect(callArgs.output_config).toEqual({ effort: "low" });
+  });
+
+  it("returns the text block when the response starts with a thinking block", async () => {
+    mockCreate.mockResolvedValue({
+      content: [
+        { type: "thinking", thinking: "", signature: "sig" },
+        { type: "text", text: "deck text" },
+      ],
+    });
+    const res = await makeRequest({ description: "test topic", count: 10 });
+    expect(res.status).toBe(200);
+    expect((await res.json()).content).toBe("deck text");
+  });
+
+  it("returns 422 when Claude refuses", async () => {
+    mockCreate.mockResolvedValue({ content: [], stop_reason: "refusal" });
+    const res = await makeRequest({ description: "test topic", count: 10 });
+    expect(res.status).toBe(422);
+  });
+});

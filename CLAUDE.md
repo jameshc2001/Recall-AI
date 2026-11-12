@@ -14,7 +14,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 ## Tech Stack
 - **Framework:** Next.js 16 (App Router) with TypeScript
 - **Styling:** Tailwind CSS 3 + autoprefixer, `darkMode: "class"` enabled
-- **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — API calls made server-side only, model `claude-sonnet-4-6`
+- **AI:** Anthropic SDK (`@anthropic-ai/sdk`) — API calls made server-side only, model `claude-sonnet-5-5` (set once in `lib/claude.ts`)
 - **Storage:** Upstash Redis (`@upstash/redis`) — all deck/session data persisted server-side
 - **Auth:** `iron-session` v8 — single-password login, signed HTTP-only cookie, 30-day TTL
 - **Markdown:** `react-markdown` + `remark-gfm` for rendering card notes (GFM: tables, fenced code, task lists, autolinks)
@@ -76,6 +76,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   storage.ts               — localStorage helpers + PracticeSession type (kept for unit tests only)
   clientStorage.ts         — Async client-side storage: calls /api/store/* routes (used by pages)
   serverStorage.ts         — Server-side Redis operations via @upstash/redis (used by store routes)
+  claude.ts                — Shared Claude config: CLAUDE_MODEL, LOW_EFFORT, getResponseText (used by all AI routes)
   session.ts               — iron-session config: SessionData interface, sessionOptions (cookie name, TTL)
   deckParser.ts            — Extracts and validates JSON deck from Claude's response
   deckIO.ts                — Import/export logic: buildExportPayload, downloadDeckFile, parseDeckExportFile (version-dispatch), importDeckFromPayload
@@ -88,6 +89,9 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
     deckIO.test.ts         — Unit tests for import/export logic; includes backwards compat tests (never delete)
     serverStorage.test.ts  — Unit tests for serverStorage; mocks @upstash/redis with a class-based mock
     auth.test.ts           — Unit tests for /api/auth/login; mocks iron-session and next/headers
+    claude.test.ts         — Unit tests for lib/claude.ts (model ID, effort, thinking-first and refusal responses)
+    chatRoute.test.ts      — Unit tests for /api/chat; mocks @anthropic-ai/sdk
+    noteRoute.test.ts      — Unit tests for /api/note; mocks @anthropic-ai/sdk
   /e2e
     fixtures.ts            — Shared deck data + seedDecks() and seedSession() helpers
     home.spec.ts           — Home page E2E tests
@@ -264,7 +268,14 @@ Key:   "recall_session_{deckId}"
 
 ## Claude API Routes
 
-Both routes are non-streaming and inject their system prompts server-side (never sent to the client).
+All three routes are non-streaming and inject their system prompts server-side (never sent to the client).
+
+**Shared Claude config (`lib/claude.ts`):**
+- `CLAUDE_MODEL` is the only place the model ID lives — change it there, not in the routes.
+- Sonnet 5.5 thinks by default, so a response can **start with a `thinking` block**. Never read `response.content[0]`; use `getResponseText(response)`, which finds the text block by type and maps `stop_reason: "refusal"` to a 422.
+- Every route spreads `LOW_EFFORT` (`output_config: { effort: "low" }`) so simple requests mostly skip thinking. Thinking tokens count toward `max_tokens`, which is why `/api/recommend` uses 1024 rather than a tight 256.
+- `@anthropic-ai/sdk` is pinned at `^0.39.0`, which predates `output_config` and the `"refusal"` stop reason in its typings — `lib/claude.ts` uses casts for both. Remove them when the SDK is upgraded.
+- Server-side refusal fallbacks (`fallbacks: "default"`) are not enabled: they need the beta messages endpoint and a newer SDK.
 
 **`POST /api/recommend`**
 - **Request body:** `{ description: string }`

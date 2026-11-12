@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
+import { CLAUDE_MODEL, LOW_EFFORT, getResponseText } from "@/lib/claude";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -58,20 +59,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: CLAUDE_MODEL,
       max_tokens: 16000,
+      ...LOW_EFFORT,
       system: SYSTEM_PROMPT,
       messages: [
         { role: "user", content: `<user_description>${sanitize(description)}</user_description>\n\nGenerate exactly ${count} cards.` },
       ],
     });
 
-    const content = response.content[0];
-    if (content.type !== "text") {
-      return NextResponse.json({ error: "Unexpected response type" }, { status: 500 });
+    const result = getResponseText(response);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    return NextResponse.json({ role: "assistant", content: content.text });
+    return NextResponse.json({ role: "assistant", content: result.text });
   } catch {
     return NextResponse.json({ error: "Failed to reach Claude API" }, { status: 500 });
   }

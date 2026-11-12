@@ -42,6 +42,25 @@ describe("POST /api/note", () => {
     expect(callArgs.max_tokens).toBeGreaterThanOrEqual(4096);
   });
 
+  it("calls claude-sonnet-5-5 at low effort", async () => {
+    await makeRequest(validBody);
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.model).toBe("claude-sonnet-5-5");
+    expect(callArgs.output_config).toEqual({ effort: "low" });
+  });
+
+  it("returns the text block when the response starts with a thinking block", async () => {
+    mockCreate.mockResolvedValue({
+      content: [
+        { type: "thinking", thinking: "", signature: "sig" },
+        { type: "text", text: "note text" },
+      ],
+    });
+    const res = await makeRequest(validBody);
+    expect(res.status).toBe(200);
+    expect((await res.json()).content).toBe("note text");
+  });
+
   it("returns the generated note content", async () => {
     const res = await makeRequest(validBody);
     expect(res.status).toBe(200);
