@@ -1,6 +1,6 @@
 // jsdom doesn't include crypto.randomUUID — polyfill it
 import { vi } from "vitest";
-import "@testing-library/jest-dom";
+import "@testing-library/jest-dom/vitest";
 
 Object.defineProperty(globalThis, "crypto", {
   value: {

@@ -96,7 +96,8 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
     chatRoute.test.ts      — Unit tests for /api/chat; mocks @anthropic-ai/sdk
     noteRoute.test.ts      — Unit tests for /api/note; mocks @anthropic-ai/sdk
   /e2e
-    fixtures.ts            — Shared deck data + seedDecks() and seedSession() helpers
+    fixtures.ts            — Custom `test` (auto-login + in-memory fake /api/store/*), shared deck data, seedDecks()/seedSession()
+    auth.spec.ts           — Login redirect / 401 / sign-in E2E tests
     home.spec.ts           — Home page E2E tests
     create.spec.ts         — Deck creation flow E2E tests (stubs /api/chat and /api/recommend)
     practice.spec.ts       — Practice session E2E tests (including session persistence and card notes)
@@ -164,7 +165,9 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
 
 ### Stubbing external calls
 - All E2E tests that touch the create flow **must** stub both `POST /api/chat` and `POST /api/recommend` using `page.route()`. Never make real Claude API calls in tests.
-- Seed localStorage using the `seedDecks()` helper from `tests/e2e/fixtures.ts` rather than navigating through the UI to create data. Use `seedSession()` to seed an in-progress practice session.
+- **Every spec must import `test` and `expect` from `./fixtures`, not `@playwright/test`.** The custom `test` logs each page in via the real `/api/auth/login` and replaces `/api/store/*` with an in-memory fake (per test, survives reloads). Use `test.use({ loggedIn: false })` for unauthenticated tests.
+- Seed data with `seedDecks()` / `seedSession()` from `tests/e2e/fixtures.ts` (they write to the fake store — call them before `page.goto`). `getStoredDecks()` / `getStoredSession()` read back what the app saved.
+- E2E needs **no real secrets**: `playwright.config.ts` starts its own `next dev` on port **3100** with throwaway `ADMIN_PASSWORD`/`SESSION_SECRET`, and points `KV_REST_API_*` / `ANTHROPIC_API_KEY` at invalid values so an unstubbed call fails rather than touching real data. `reuseExistingServer` is `false` because a normally-started dev server wouldn't have this env. If E2E won't start, stop any `next dev` already running in this directory (Next refuses a second dev server in the same project).
 - Unit tests that touch `storage.ts` rely on jsdom's localStorage — no mocking needed; it is cleared automatically in `tests/unit/setup.ts`.
 - Unit tests for `serverStorage.ts` mock `@upstash/redis` using a class-based mock (a `MockRedis` class, not `vi.fn()`) — `vi.fn()` cannot be used as a constructor.
 - Unit tests for the auth route mock both `iron-session` (`getIronSession` returns `{ isLoggedIn, save }`) and `next/headers` (`cookies` returns a minimal cookie store).
@@ -178,15 +181,13 @@ npm run test:e2e          # Playwright E2E (starts dev server automatically)
 npm run test:e2e:ui       # Playwright with interactive UI
 ```
 
-### Known environment issues
-- **Node 25+** enables Node's built-in `localStorage` global, which shadows jsdom's and makes every unit test fail in `tests/unit/setup.ts` (`Cannot read properties of undefined (reading 'clear')`). Workaround: `NODE_OPTIONS=--no-experimental-webstorage npm test`.
-- **E2E needs `.env.local`** with at least `SESSION_SECRET` — without it `proxy.ts` throws ("iron-session: Bad usage. Missing password") and the Playwright web server never comes up. Note also that the E2E fixtures still seed localStorage, while pages now read from Redis behind auth, so the E2E suite likely needs rework (login + Redis/route stubbing) before it can pass again.
-- `components/__tests__/CardNote.test.tsx` has pre-existing `tsc` errors (jest-dom matcher types not picked up; `renderNote` omits the `question`/`answer` props). Vitest runs it fine.
+### Node version note
+- Node 22.4+ has a built-in `localStorage` global (on by default from Node 25) that shadows jsdom's and breaks every unit test. `vitest.config.ts` passes `--no-experimental-webstorage` to test workers via `execArgv` when the Node version supports the flag — don't remove it.
 
 ### Config files
 - `@testing-library/jest-dom` is installed and imported in `tests/unit/setup.ts` — `toBeInTheDocument()` and related matchers are available in all unit/component tests.
 - `vitest.config.ts` — jsdom environment, `@` alias, excludes `tests/e2e/`
-- `playwright.config.ts` — Chromium only, baseURL `http://localhost:3000`, auto-starts `next dev`
+- `playwright.config.ts` — Chromium only, baseURL `http://localhost:3100`, auto-starts `next dev -p 3100` with test-only env
 
 ## Setup Notes
 - The package name is `recall-ai` (lowercase, no spaces) — the directory name "Recall AI" cannot be used directly as an npm package name.

@@ -1,5 +1,4 @@
-import { test, expect } from "@playwright/test";
-import { seedDecks, seedSession, STUB_DECK } from "./fixtures";
+import { test, expect, seedDecks, seedSession, STUB_DECK } from "./fixtures";
 import type { Deck } from "@/lib/types";
 
 const ORIGINAL_ORDER = STUB_DECK.cards.map((c) => c.id);
@@ -115,6 +114,8 @@ test.describe("Session persistence", () => {
 
   test("progress is restored after navigating away and back", async ({ page }) => {
     await page.goto(`/practice/${STUB_DECK.id}`);
+    // Decks/sessions load asynchronously — wait for the first card before probing
+    await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
 
     // Find and click whichever card is shown first
     const questions = STUB_DECK.cards.map((c) => c.question);
@@ -146,6 +147,7 @@ test.describe("Session persistence", () => {
 
   test("card order is preserved when resuming mid-session", async ({ page }) => {
     await page.goto(`/practice/${STUB_DECK.id}`);
+    await expect(page.getByText(`Card 1 of ${STUB_DECK.cards.length}`)).toBeVisible();
 
     // Record the order all 3 cards appear in by marking each one
     const seen: string[] = [];
@@ -155,6 +157,7 @@ test.describe("Session persistence", () => {
       }
       await page.getByText(seen[seen.length - 1]).click();
       await page.getByRole("button", { name: "Correct", exact: true }).click();
+      await expect(page.getByText(`Card ${i + 2} of ${STUB_DECK.cards.length}`)).toBeVisible();
       await page.waitForTimeout(200);
     }
 

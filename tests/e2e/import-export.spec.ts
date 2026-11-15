@@ -1,11 +1,18 @@
-import { test, expect } from "@playwright/test";
 import {
   seedDecks,
   seedSession,
   STUB_DECK,
   STUB_EXPORT_FILE,
   STUB_EXPORT_FILE_WITH_SESSION,
+  test,
+  expect,
 } from "./fixtures";
+
+// The import error <p role="alert">. Next.js also renders an empty role="alert"
+// route announcer, so a bare getByRole("alert") is ambiguous.
+function importError(page: import("@playwright/test").Page) {
+  return page.locator('p[role="alert"]');
+}
 
 // ---------------------------------------------------------------------------
 // Export
@@ -58,7 +65,7 @@ test.describe("Export", () => {
   test("exported file includes session data when a session is active", async ({ page }) => {
     const cardOrder = STUB_DECK.cards.map((c) => c.id);
     await seedDecks(page, [STUB_DECK]);
-    await seedSession(page, STUB_DECK.id, cardOrder, { currentIndex: 1, results: [true] });
+    await seedSession(page, STUB_DECK.id, cardOrder, { currentIndex: 1, results: ["correct"] });
     await page.goto("/");
     const [download] = await Promise.all([
       page.waitForEvent("download"),
@@ -130,23 +137,23 @@ test.describe("Import", () => {
       mimeType: "application/json",
       buffer: Buffer.from("not valid json {{{{"),
     });
-    await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.getByRole("alert")).toContainText(/valid json/i);
+    await expect(importError(page)).toBeVisible();
+    await expect(importError(page)).toContainText(/valid json/i);
   });
 
   test("uploading a wrong-shape JSON file shows an error", async ({ page }) => {
     await page.goto("/");
     await importFile(page, { something: "wrong" });
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(importError(page)).toBeVisible();
   });
 
   test("error is cleared after a successful import follows a failed one", async ({ page }) => {
     await page.goto("/");
     // trigger an error
     await importFile(page, { something: "wrong" });
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(importError(page)).toBeVisible();
     // now import a valid file
     await importFile(page, STUB_EXPORT_FILE);
-    await expect(page.getByRole("alert")).not.toBeVisible();
+    await expect(importError(page)).not.toBeVisible();
   });
 });

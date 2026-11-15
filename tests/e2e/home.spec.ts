@@ -1,5 +1,4 @@
-import { test, expect } from "@playwright/test";
-import { seedDecks, seedSession, STUB_DECK } from "./fixtures";
+import { test, expect, seedDecks, seedSession, STUB_DECK } from "./fixtures";
 
 test.describe("Home page", () => {
   test("shows empty state when no decks exist", async ({ page }) => {
@@ -24,7 +23,8 @@ test.describe("Home page", () => {
     await seedDecks(page, [STUB_DECK]);
     await page.goto("/");
     await page.getByRole("link", { name: /practice/i }).first().click();
-    await expect(page).toHaveURL(`/practice/${STUB_DECK.id}`);
+    // Generous timeout: under parallel load, next dev may still be compiling /practice
+    await expect(page).toHaveURL(`/practice/${STUB_DECK.id}`, { timeout: 20_000 });
   });
 
   test("shows in-progress indicator when a session has completed cards", async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe("Home page", () => {
     await seedDecks(page, [STUB_DECK]);
     await seedSession(page, STUB_DECK.id, cardOrder, {
       currentIndex: 1,
-      results: [true],
+      results: ["correct"],
     });
     await page.goto("/");
     await expect(page.getByText("In progress")).toBeVisible();

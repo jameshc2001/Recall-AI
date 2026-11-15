@@ -1,5 +1,4 @@
-import { test, expect } from "@playwright/test";
-import { STUB_DECK_RESPONSE_CONTENT } from "./fixtures";
+import { test, expect, STUB_DECK_RESPONSE_CONTENT } from "./fixtures";
 
 const REASONING =
   "A beginner JavaScript deck for a fun quiz works best with around 10 focused cards.";

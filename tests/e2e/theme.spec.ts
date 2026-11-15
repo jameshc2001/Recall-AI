@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("dark mode toggle", () => {
   test("toggle button is present on home page", async ({ page }) => {

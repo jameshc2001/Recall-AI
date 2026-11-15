@@ -1,10 +1,11 @@
+import "@testing-library/jest-dom/vitest"; // matcher types (tests/ is excluded from tsconfig, so setup.ts types aren't seen here)
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CardNote from "@/components/CardNote";
 
 function renderNote(initialNote?: string, onSave = vi.fn()) {
   return render(
-    <CardNote cardId="c1" initialNote={initialNote} onSave={onSave} />
+    <CardNote cardId="c1" question="Q" answer="A" initialNote={initialNote} onSave={onSave} />
   );
 }
 
