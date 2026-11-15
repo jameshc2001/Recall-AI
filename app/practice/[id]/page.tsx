@@ -32,6 +32,9 @@ export default function PracticePage() {
   const [shuffledCards, setShuffledCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  // Once the answer has been revealed, the mark buttons and note stay visible
+  // even if the user flips the card back over to re-read the question.
+  const [revealed, setRevealed] = useState(false);
   const [results, setResults] = useState<Array<"correct" | "incorrect">>([]);
   const [phase, setPhase] = useState<Phase>("practicing");
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
@@ -69,12 +72,19 @@ export default function PracticePage() {
     const updated = [...results, result];
     setResults(updated);
     if (currentIndex + 1 < shuffledCards.length) {
+      const wasFlipped = isFlipped;
       setIsFlipped(false);
+      setRevealed(false);
       // Fire-and-forget: don't block the UI on the network save
       saveSession(deck.id, { currentIndex: currentIndex + 1, results: updated, cardOrder: shuffledCards.map((c) => c.id) });
-      // Swap content at the halfway point (125ms) when the card is edge-on
-      // and neither face is visible, so the change is imperceptible.
-      setTimeout(() => setCurrentIndex((i) => i + 1), 125);
+      if (wasFlipped) {
+        // Swap content at the halfway point (125ms) when the card is edge-on
+        // and neither face is visible, so the change is imperceptible.
+        setTimeout(() => setCurrentIndex((i) => i + 1), 125);
+      } else {
+        // Card was already flipped back to the question — no animation to hide behind
+        setCurrentIndex((i) => i + 1);
+      }
     } else {
       clearSession(deck.id);
       setPhase("summary");
@@ -89,6 +99,7 @@ export default function PracticePage() {
     saveSession(deck.id, { currentIndex: 0, results: [], cardOrder: cards.map((c) => c.id) });
     setCurrentIndex(0);
     setIsFlipped(false);
+    setRevealed(false);
     setResults([]);
     setPhase("practicing");
   }
@@ -182,10 +193,13 @@ export default function PracticePage() {
                 question={card.question}
                 answer={card.answer}
                 isFlipped={isFlipped}
-                onFlip={() => setIsFlipped(true)}
+                onFlip={() => {
+                  setIsFlipped((f) => !f);
+                  setRevealed(true);
+                }}
               />
 
-              {isFlipped && (
+              {revealed && (
                 <div className="flex gap-3 w-full max-w-lg mx-auto">
                   <button
                     onClick={() => handleMark("incorrect")}
@@ -204,7 +218,7 @@ export default function PracticePage() {
             </div>
 
             {/* Note — flows below card, page scrolls */}
-            {isFlipped && (
+            {revealed && (
               <div className="pb-4" data-testid="note-wrapper">
                 <CardNote
                   key={card.id}

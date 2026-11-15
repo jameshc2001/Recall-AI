@@ -34,6 +34,32 @@ test.describe("Practice page", () => {
     await expect(page.getByRole("button", { name: "Incorrect", exact: true })).toBeVisible();
   });
 
+  test("clicking a flipped card flips it back, keeping mark buttons visible", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    const card = page.getByTestId("flashcard");
+    await expect(card).toHaveAttribute("data-flipped", "false");
+    await card.click();
+    await expect(card).toHaveAttribute("data-flipped", "true");
+    await card.click();
+    await expect(card).toHaveAttribute("data-flipped", "false");
+    await expect(page.getByRole("button", { name: "Correct", exact: true })).toBeVisible();
+    // And it can be flipped forward again
+    await card.click();
+    await expect(card).toHaveAttribute("data-flipped", "true");
+  });
+
+  test("marking a card after flipping it back advances to the next card", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    const card = page.getByTestId("flashcard");
+    await card.click();
+    await card.click();
+    await expect(card).toHaveAttribute("data-flipped", "false");
+    await page.getByRole("button", { name: "Correct", exact: true }).click();
+    await expect(page.getByText(`Card 2 of ${STUB_DECK.cards.length}`)).toBeVisible();
+    await expect(page.getByText(STUB_DECK.cards[1].question)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Correct", exact: true })).not.toBeVisible();
+  });
+
   test("marking correct advances to next card", async ({ page }) => {
     await page.goto(`/practice/${STUB_DECK.id}`);
     await page.getByText(STUB_DECK.cards[0].question).click();
