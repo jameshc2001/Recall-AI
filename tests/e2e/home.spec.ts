@@ -13,6 +13,30 @@ test.describe("Home page", () => {
     await expect(page.getByText(`${STUB_DECK.cards.length} cards`)).toBeVisible();
   });
 
+  test("shows a loading skeleton while decks are being fetched", async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+    // Hold the decks request until the skeleton has been checked, then let the fake store answer it
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    await page.route("**/api/store/decks", async (route) => {
+      await held;
+      await route.fallback();
+    });
+    await page.goto("/");
+    await expect(page.getByRole("status", { name: /loading decks/i })).toBeVisible();
+    await expect(page.getByText(/no decks yet/i)).toHaveCount(0);
+    release();
+    await expect(page.getByText(STUB_DECK.title)).toBeVisible();
+    await expect(page.getByRole("status", { name: /loading decks/i })).toHaveCount(0);
+  });
+
+  test("shows an error if decks fail to load", async ({ page }) => {
+    await page.route("**/api/store/decks", (route) => route.abort());
+    await page.goto("/");
+    await expect(page.getByRole("alert").filter({ hasText: /couldn.t load your decks/i })).toBeVisible();
+    await expect(page.getByText(/no decks yet/i)).toHaveCount(0);
+  });
+
   test("navigates to the create page", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: /new deck/i }).click();

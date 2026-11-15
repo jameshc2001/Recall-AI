@@ -137,6 +137,11 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
 - E2E fixtures `STUB_EXPORT_FILE` and `STUB_EXPORT_FILE_WITH_SESSION` in `tests/e2e/fixtures.ts` represent the canonical v1 format — **do not modify them**. Add new fixtures alongside them for new versions.
 - Export button is on each `DeckCard`. Import button is on the home page (`app/page.tsx`) next to `+ New deck`. Import errors are shown as a `role="alert"` paragraph below the header.
 
+## Home Page Loading State
+- `decks` state in `app/page.tsx` starts as `null` (not `[]`) so "still loading" is distinct from "no decks". While `null`, `DeckListSkeleton` (exported from `DeckList.tsx`, `role="status"` + `aria-label="Loading decks"`) renders pulsing placeholder tiles shaped like `DeckCard`. Without this, the empty state flashed before decks arrived.
+- A network failure in `getDecks` shows a `role="alert"` error instead of the empty state. `getDecks` doesn't throw on non-OK HTTP responses, so a 500 still falls through to an empty list.
+- E2E: `getByRole("alert")` alone also matches Next's `#__next-route-announcer__` — filter by text. To test the loading state, register a `page.route` that awaits a promise and then calls `route.fallback()` so the fixture's fake store still answers.
+
 ## Resizable Practice Panel
 - The practice page has left/right drag handles that resize the content panel symmetrically (delta × 2 applied to width).
 - Uses `PointerEvent` handlers with `setPointerCapture` for smooth drag without losing the cursor when moving fast.

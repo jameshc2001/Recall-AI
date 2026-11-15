@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation";
 import { Deck } from "@/lib/types";
 import { getDecks, deleteDeck, saveDeck, saveSession } from "@/lib/clientStorage";
 import { parseDeckExportFile } from "@/lib/deckIO";
-import DeckList from "@/components/DeckList";
+import DeckList, { DeckListSkeleton } from "@/components/DeckList";
 
 export default function HomePage() {
   const router = useRouter();
-  const [decks, setDecks] = useState<Deck[]>([]);
+  // null until the first fetch finishes, so we can show a skeleton instead of the empty state
+  const [decks, setDecks] = useState<Deck[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -20,7 +22,9 @@ export default function HomePage() {
   }
 
   useEffect(() => {
-    getDecks().then(setDecks);
+    getDecks()
+      .then(setDecks)
+      .catch(() => setLoadError(true));
   }, []);
 
   async function handleDelete(id: string) {
@@ -90,7 +94,15 @@ export default function HomePage() {
           {importError}
         </p>
       )}
-      <DeckList decks={decks} onDelete={handleDelete} />
+      {loadError ? (
+        <p role="alert" className="text-sm text-red-500 py-24 text-center">
+          Couldn&apos;t load your decks. Try refreshing the page.
+        </p>
+      ) : decks === null ? (
+        <DeckListSkeleton />
+      ) : (
+        <DeckList decks={decks} onDelete={handleDelete} />
+      )}
     </main>
   );
 }
