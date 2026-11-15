@@ -309,6 +309,32 @@ test.describe("Card notes", () => {
     await page.getByText(STUB_DECK.cards[0].question).click();
     await expect(page.getByText("Pre-existing note text")).toBeVisible();
   });
+
+  test("LaTeX math in a note is rendered with KaTeX, not shown raw", async ({ page }) => {
+    const deckWithMath: Deck = {
+      ...STUB_DECK,
+      id: "deck-with-math",
+      cards: [
+        {
+          ...STUB_DECK.cards[0],
+          note: "Vega is\n\n$$\n\\text{Vega} = \\frac{\\partial V}{\\partial \\sigma}\n$$\n\nwhere $\\sigma_t$ is volatility.",
+        },
+        ...STUB_DECK.cards.slice(1),
+      ],
+    };
+    await seedDecks(page, [deckWithMath]);
+    await seedSession(page, deckWithMath.id, deckWithMath.cards.map((c) => c.id));
+    await page.goto(`/practice/${deckWithMath.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+
+    const note = page.getByTestId("note-wrapper");
+    await expect(note.locator(".katex-display")).toBeVisible();
+    await expect(note.locator(".katex").nth(1)).toBeVisible(); // inline $\sigma_t$
+    await expect(note).not.toContainText("$$");
+    // .katex-html is the visible output; KaTeX also keeps the TeX source in a
+    // hidden MathML annotation for screen readers, so only check the visible part
+    await expect(note.locator(".katex-html").first()).not.toContainText("\\frac");
+  });
 });
 
 test.describe("Scrollable layout", () => {

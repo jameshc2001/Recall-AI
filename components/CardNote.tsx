@@ -3,6 +3,9 @@
 import { useEffect, useState, Children, isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vs, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -245,7 +248,11 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
       ) : saved ? (
         <div className="relative group">
           <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 text-sm text-neutral-700 dark:text-neutral-300">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
+              components={markdownComponents}
+            >
               {saved}
             </ReactMarkdown>
           </div>

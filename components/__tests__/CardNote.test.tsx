@@ -86,6 +86,41 @@ describe("CardNote", () => {
     expect(screen.getByRole("cell", { name: "one" })).toBeInTheDocument();
   });
 
+  it("renders display math with KaTeX instead of showing raw LaTeX", () => {
+    const { container } = renderNote(
+      "Vega:\n\n$$\n\\text{Vega} = \\frac{\\partial V}{\\partial \\sigma}\n$$"
+    );
+    expect(container.querySelector(".katex-display")).not.toBeNull();
+    expect(container.textContent).not.toContain("$$");
+    // .katex-html is the visible output (KaTeX also keeps the TeX source in a
+    // hidden MathML annotation for screen readers, so check only the visible part)
+    expect(container.querySelector(".katex-html")?.textContent).not.toContain("\\frac");
+  });
+
+  it("renders inline math with KaTeX", () => {
+    const { container } = renderNote("Volatility $\\sigma$ drives vega.");
+    expect(container.querySelector(".katex")).not.toBeNull();
+    expect(container.querySelector(".katex-display")).toBeNull();
+    expect(container.textContent).not.toContain("$\\sigma$");
+  });
+
+  it("does not turn underscores inside math into italics", () => {
+    const { container } = renderNote("$$\nx_i + y_i\n$$");
+    expect(container.querySelector("em")).toBeNull();
+    expect(container.querySelector(".katex-display")).not.toBeNull();
+  });
+
+  it("keeps escaped dollar signs as literal text", () => {
+    const { container } = renderNote("It costs \\$100 and \\$200.");
+    expect(container.querySelector(".katex")).toBeNull();
+    expect(container.textContent).toContain("$100 and $200");
+  });
+
+  it("shows invalid LaTeX as an error span rather than crashing", () => {
+    const { container } = renderNote("$$\n\\frac{\\partial\n$$");
+    expect(container.querySelector(".katex-error, .katex")).not.toBeNull();
+  });
+
   it("labels the AI button 'fill' for an empty draft and 'edit' once the draft has content", () => {
     renderNote(undefined);
     fireEvent.click(screen.getByText("Add a note"));

@@ -23,3 +23,11 @@
 .dark .scrollbar-subtle::-webkit-scrollbar-thumb {
   background-color: rgb(64 64 64); /* neutral-700 */
 }
+
+/* KaTeX display equations in card notes: scroll wide formulas horizontally
+   instead of overflowing the note panel (matters on mobile). */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
