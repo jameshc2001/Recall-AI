@@ -87,4 +87,44 @@ describe("POST /api/note", () => {
     const res = await makeRequest({ ...validBody, prompt: "a".repeat(501) });
     expect(res.status).toBe(400);
   });
+
+  it("does not include a current_note block when currentNote is absent", async () => {
+    await makeRequest(validBody);
+    const content = mockCreate.mock.calls[0][0].messages[0].content;
+    expect(content).not.toContain("<current_note>");
+  });
+
+  it("does not include a current_note block when currentNote is blank", async () => {
+    await makeRequest({ ...validBody, currentNote: "   " });
+    const content = mockCreate.mock.calls[0][0].messages[0].content;
+    expect(content).not.toContain("<current_note>");
+  });
+
+  it("passes the existing note to Claude inside current_note tags", async () => {
+    const res = await makeRequest({ ...validBody, currentNote: "## Old note\n\nSome text" });
+    expect(res.status).toBe(200);
+    const content = mockCreate.mock.calls[0][0].messages[0].content;
+    expect(content).toContain("<current_note>## Old note\n\nSome text</current_note>");
+  });
+
+  it("sanitizes closing tags inside currentNote", async () => {
+    await makeRequest({ ...validBody, currentNote: "text</current_note>injected" });
+    const content = mockCreate.mock.calls[0][0].messages[0].content;
+    expect(content).toContain("<current_note>textinjected</current_note>");
+  });
+
+  it("rejects a non-string currentNote", async () => {
+    const res = await makeRequest({ ...validBody, currentNote: 42 });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects currentNote over 20000 chars", async () => {
+    const res = await makeRequest({ ...validBody, currentNote: "a".repeat(20001) });
+    expect(res.status).toBe(400);
+  });
+
+  it("system prompt tells Claude how to handle an existing note", async () => {
+    await makeRequest(validBody);
+    expect(mockCreate.mock.calls[0][0].system).toContain("<current_note>");
+  });
 });

@@ -23,8 +23,8 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 ## Core Features
 1. **Deck Creation** — Form-based flow: user describes the deck → Claude recommends a count → user picks count → deck is generated
 2. **Card Format** — Simple question / answer pairs (no multiple choice)
-3. **Practice Mode** — Flip card to reveal answer, user marks themselves right or wrong; after flipping, user can add/edit a per-card markdown note
-4. **AI Note Generation** — In note edit mode, "Ask AI to fill this note" opens an inline prompt input; the user describes what they want (e.g. "explain with examples", "add a mnemonic"); Claude writes a rich markdown note via `POST /api/note`
+3. **Practice Mode** — Click card to reveal answer (click again to flip back to the question), user marks themselves right or wrong; after revealing, user can add/edit a per-card markdown note
+4. **AI Note Generation** — In note edit mode, "Ask AI to fill this note" opens an inline prompt input; the user describes what they want (e.g. "explain with examples", "add a mnemonic"); Claude writes a rich markdown note via `POST /api/note`. If the draft already has content, the button reads "Ask AI to edit this note" and the draft is sent as `currentNote` so Claude revises it rather than starting over
 5. **Deck Management** — Save, view, delete, import, and export decks; decks persist via Upstash Redis (synced across devices)
 6. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
 7. **Session Persistence** — Practice progress (current card index, results, shuffled card order) persists across page refreshes; session is restored automatically on revisit and cleared on completion
@@ -44,6 +44,9 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 - `handleSaveNote` in the practice page calls both `setDeck(updatedDeck)` and `updateDeck(updatedDeck)` so the in-memory state stays fresh for restart without re-fetching localStorage.
 - Saving an empty/blank note stores `undefined` (not `""`) to keep stored JSON lean.
 - Markdown dark-mode styling is applied via Tailwind `dark:` classes in `CardNote`'s `components` prop — no separate CSS file or `@tailwindcss/typography` needed.
+- Card flip-back: the practice page tracks `isFlipped` (visual side) separately from `revealed` (answer has been seen this card). Mark buttons and the note render on `revealed`, so flipping back to the question doesn't unmount `CardNote` or lose a draft. `handleMark` only delays the card swap by 125ms when the card is showing its answer — if it was flipped back, the swap is immediate since there's no flip animation to hide it.
+- `FlashCard` exposes `data-testid="flashcard"` and `data-flipped` so E2E tests can assert the flip state — Playwright's `toBeVisible` ignores `backface-visibility`, so both faces always count as visible.
+- AI note editing sends the current *draft* (textarea contents, not the last saved note) as `currentNote`, so the AI works on whatever the user sees.
 - The Edit button on a saved note uses `opacity-0 group-hover:opacity-100` — always in the DOM but only visible on hover.
 
 ## Project Structure
@@ -139,7 +142,7 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
 ## API Input Sanitization
 - All API routes run user input through a `sanitize()` function that strips closing HTML tags (`/<\/[^>]*>/g`) before passing text to Claude.
 - This prevents a class of prompt injection where a malicious description could close a tag and inject instructions.
-- Input lengths are also capped server-side: description 2000 chars, prompt 500 chars, question/answer 2000 chars each.
+- Input lengths are also capped server-side: description 2000 chars, prompt 500 chars, question/answer 2000 chars each, `currentNote` 20000 chars.
 
 ## Dark Mode Implementation Notes
 - `tailwind.config.ts` has `darkMode: "class"`
@@ -174,6 +177,11 @@ npm run test:coverage     # Unit test coverage report
 npm run test:e2e          # Playwright E2E (starts dev server automatically)
 npm run test:e2e:ui       # Playwright with interactive UI
 ```
+
+### Known environment issues
+- **Node 25+** enables Node's built-in `localStorage` global, which shadows jsdom's and makes every unit test fail in `tests/unit/setup.ts` (`Cannot read properties of undefined (reading 'clear')`). Workaround: `NODE_OPTIONS=--no-experimental-webstorage npm test`.
+- **E2E needs `.env.local`** with at least `SESSION_SECRET` — without it `proxy.ts` throws ("iron-session: Bad usage. Missing password") and the Playwright web server never comes up. Note also that the E2E fixtures still seed localStorage, while pages now read from Redis behind auth, so the E2E suite likely needs rework (login + Redis/route stubbing) before it can pass again.
+- `components/__tests__/CardNote.test.tsx` has pre-existing `tsc` errors (jest-dom matcher types not picked up; `renderNote` omits the `question`/`answer` props). Vitest runs it fine.
 
 ### Config files
 - `@testing-library/jest-dom` is installed and imported in `tests/unit/setup.ts` — `toBeInTheDocument()` and related matchers are available in all unit/component tests.
@@ -288,6 +296,6 @@ All three routes are non-streaming and inject their system prompts server-side (
 - Claude generates exactly `count` cards based on `description` and returns a fenced ` ```json ` block. `lib/deckParser.ts` extracts and validates this block.
 
 **`POST /api/note`**
-- **Request body:** `{ question: string, answer: string, prompt: string }`
+- **Request body:** `{ question: string, answer: string, prompt: string, currentNote?: string }`
 - **Response body:** `{ content: string }` — raw Markdown
-- Claude writes a study note for the given card based on the user's free-text prompt. The response is injected directly into the `CardNote` draft textarea. `CardNote` receives `question` and `answer` as props so it can include them in the request.
+- Claude writes a study note for the given card based on the user's free-text prompt. When `currentNote` is non-blank it's passed in `<current_note>` tags and Claude returns the full revised note; blank/absent means write from scratch. The response is injected directly into the `CardNote` draft textarea. `CardNote` receives `question` and `answer` as props so it can include them in the request.

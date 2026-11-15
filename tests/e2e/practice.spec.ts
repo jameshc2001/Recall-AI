@@ -444,12 +444,37 @@ test.describe("AI note generation", () => {
     await page.getByPlaceholder("Add a note…").fill("my draft");
 
     // Open AI panel then cancel
-    await page.getByText("Ask AI to fill this note").click();
-    await page.getByPlaceholder("What should AI write?").fill("some prompt");
+    await page.getByText("Ask AI to edit this note").click();
+    await page.getByPlaceholder("What should AI change?").fill("some prompt");
     await page.locator(".flex.flex-col.gap-2.rounded-xl").getByRole("button", { name: "Cancel" }).click();
 
     // AI panel gone, draft still intact
-    await expect(page.getByPlaceholder("What should AI write?")).not.toBeVisible();
+    await expect(page.getByPlaceholder("What should AI change?")).not.toBeVisible();
     await expect(page.getByPlaceholder("Add a note…")).toHaveValue("my draft");
+  });
+
+  test("editing an existing draft sends it to the AI as currentNote", async ({ page }) => {
+    let requestBody: Record<string, unknown> = {};
+    await page.route("**/api/note", async (route) => {
+      requestBody = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ content: "## Revised note" }),
+      });
+    });
+
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    await page.getByText("Add a note").click();
+    await expect(page.getByText("Ask AI to fill this note")).toBeVisible();
+    await page.getByPlaceholder("Add a note…").fill("my existing note");
+    await page.getByText("Ask AI to edit this note").click();
+    await page.getByPlaceholder("What should AI change?").fill("make it shorter");
+    await page.getByRole("button", { name: "Generate" }).click();
+
+    await expect(page.getByPlaceholder("Add a note…")).toHaveValue("## Revised note");
+    expect(requestBody.currentNote).toBe("my existing note");
+    expect(requestBody.prompt).toBe("make it shorter");
   });
 });

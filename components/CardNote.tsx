@@ -124,6 +124,9 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
     setMode("view");
   }
 
+  // When the draft already has content, the AI revises it instead of writing from scratch
+  const hasDraft = draft.trim().length > 0;
+
   async function handleAiFill() {
     if (!aiPrompt.trim()) return;
     setAiLoading(true);
@@ -132,7 +135,7 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
       const res = await fetch("/api/note", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, answer, prompt: aiPrompt.trim() }),
+        body: JSON.stringify({ question, answer, prompt: aiPrompt.trim(), currentNote: draft.trim() || undefined }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -166,7 +169,9 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
           {aiOpen ? (
             <div className="flex flex-col gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 p-3">
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Tell AI what to write — e.g. &ldquo;explain with examples&rdquo;, &ldquo;add a mnemonic&rdquo;, &ldquo;compare with a table&rdquo;
+                {hasDraft
+                  ? <>Tell AI how to change this note — e.g. &ldquo;make it shorter&rdquo;, &ldquo;add an example&rdquo;, &ldquo;fix the table&rdquo;</>
+                  : <>Tell AI what to write — e.g. &ldquo;explain with examples&rdquo;, &ldquo;add a mnemonic&rdquo;, &ldquo;compare with a table&rdquo;</>}
               </p>
               <textarea
                 autoFocus
@@ -176,7 +181,7 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleAiFill();
                   if (e.key === "Escape") { setAiOpen(false); setAiPrompt(""); setAiError(""); }
                 }}
-                placeholder="What should AI write?"
+                placeholder={hasDraft ? "What should AI change?" : "What should AI write?"}
                 rows={2}
                 maxLength={500}
                 disabled={aiLoading}
@@ -218,7 +223,7 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
               className="self-start text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors flex items-center gap-1"
             >
               <span>✦</span>
-              <span>Ask AI to fill this note</span>
+              <span>{hasDraft ? "Ask AI to edit this note" : "Ask AI to fill this note"}</span>
             </button>
           )}
 

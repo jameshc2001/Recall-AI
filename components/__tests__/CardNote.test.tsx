@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CardNote from "@/components/CardNote";
 
 function renderNote(initialNote?: string, onSave = vi.fn()) {
@@ -83,5 +83,57 @@ describe("CardNote", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "A" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "one" })).toBeInTheDocument();
+  });
+
+  it("labels the AI button 'fill' for an empty draft and 'edit' once the draft has content", () => {
+    renderNote(undefined);
+    fireEvent.click(screen.getByText("Add a note"));
+    expect(screen.getByText("Ask AI to fill this note")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "some content" } });
+    expect(screen.getByText("Ask AI to edit this note")).toBeInTheDocument();
+  });
+
+  it("sends the current draft to /api/note as currentNote and replaces the draft", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: "revised" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      render(<CardNote cardId="c1" question="Q" answer="A" initialNote="old note" onSave={vi.fn()} />);
+      fireEvent.click(screen.getByText("Edit"));
+      fireEvent.click(screen.getByText("Ask AI to edit this note"));
+      fireEvent.change(screen.getByPlaceholderText("What should AI change?"), { target: { value: "shorter" } });
+      fireEvent.click(screen.getByText("Generate"));
+
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText("Add a note… Markdown supported")).toHaveValue("revised")
+      );
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body).toEqual({ question: "Q", answer: "A", prompt: "shorter", currentNote: "old note" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("omits currentNote when the draft is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: "new" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      render(<CardNote cardId="c1" question="Q" answer="A" initialNote={undefined} onSave={vi.fn()} />);
+      fireEvent.click(screen.getByText("Add a note"));
+      fireEvent.click(screen.getByText("Ask AI to fill this note"));
+      fireEvent.change(screen.getByPlaceholderText("What should AI write?"), { target: { value: "explain" } });
+      fireEvent.click(screen.getByText("Generate"));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body).not.toHaveProperty("currentNote");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
