@@ -335,6 +335,38 @@ test.describe("Card notes", () => {
     // hidden MathML annotation for screen readers, so only check the visible part
     await expect(note.locator(".katex-html").first()).not.toContainText("\\frac");
   });
+
+  async function openNote(page: import("@playwright/test").Page, note: string) {
+    const deck: Deck = {
+      ...STUB_DECK,
+      id: "deck-with-diagram",
+      cards: [{ ...STUB_DECK.cards[0], note }, ...STUB_DECK.cards.slice(1)],
+    };
+    await seedDecks(page, [deck]);
+    await seedSession(page, deck.id, deck.cards.map((c) => c.id));
+    await page.goto(`/practice/${deck.id}`);
+    await page.getByText(STUB_DECK.cards[0].question).click();
+    return page.getByTestId("note-wrapper");
+  }
+
+  test("mermaid code block in a note renders as a diagram", async ({ page }) => {
+    const note = await openNote(
+      page,
+      "Flow:\n\n```mermaid\ngraph TD\n  A[Question] --> B[Answer]\n```"
+    );
+    const diagram = note.getByTestId("mermaid-diagram");
+    // Mermaid is lazily loaded and compiled on first use by next dev — allow time
+    await expect(diagram.locator("svg")).toBeVisible({ timeout: 20_000 });
+    await expect(diagram).toContainText("Question");
+    await expect(note).not.toContainText("graph TD");
+  });
+
+  test("invalid mermaid syntax falls back to showing the source", async ({ page }) => {
+    const note = await openNote(page, "```mermaid\nthis is not a diagram -->\n```");
+    await expect(note.getByTestId("mermaid-fallback")).toBeVisible({ timeout: 20_000 });
+    await expect(note.getByText("Couldn't render diagram")).toBeVisible();
+    await expect(note).toContainText("this is not a diagram -->");
+  });
 });
 
 test.describe("Scrollable layout", () => {

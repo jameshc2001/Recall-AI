@@ -123,6 +123,14 @@ describe("POST /api/note", () => {
     expect(res.status).toBe(400);
   });
 
+  it("system prompt offers mermaid diagrams but only when they help", async () => {
+    await makeRequest(validBody);
+    const system: string = mockCreate.mock.calls[0][0].system;
+    expect(system).toContain("```mermaid");
+    expect(system).toMatch(/only use one when a visual genuinely makes the idea clearer/i);
+    expect(system).toMatch(/never add one just for decoration/i);
+  });
+
   it("system prompt tells Claude how to handle an existing note", async () => {
     await makeRequest(validBody);
     expect(mockCreate.mock.calls[0][0].system).toContain("<current_note>");

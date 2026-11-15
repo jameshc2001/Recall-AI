@@ -1,7 +1,15 @@
 import "@testing-library/jest-dom/vitest"; // matcher types (tests/ is excluded from tsconfig, so setup.ts types aren't seen here)
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CardNote from "@/components/CardNote";
+
+// jsdom can't lay out real Mermaid SVGs, so mock the (lazily imported) library
+const mermaidMock = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  parse: vi.fn(),
+  render: vi.fn(),
+}));
+vi.mock("mermaid", () => ({ default: mermaidMock }));
 
 function renderNote(initialNote?: string, onSave = vi.fn()) {
   return render(
@@ -171,5 +179,60 @@ describe("CardNote", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("CardNote mermaid diagrams", () => {
+  const CHART = "graph TD\n  A[Start] --> B[End]";
+  const NOTE = "Flow:\n\n```mermaid\n" + CHART + "\n```";
+
+  beforeEach(() => {
+    mermaidMock.initialize.mockReset();
+    mermaidMock.parse.mockReset().mockResolvedValue({ diagramType: "flowchart" });
+    mermaidMock.render.mockReset().mockResolvedValue({ svg: '<svg data-mock="diagram"></svg>' });
+  });
+
+  afterEach(() => {
+    document.documentElement.classList.remove("dark");
+  });
+
+  it("renders a mermaid code block as a diagram", async () => {
+    renderNote(NOTE);
+    const diagram = await screen.findByTestId("mermaid-diagram");
+    expect(diagram.querySelector('svg[data-mock="diagram"]')).not.toBeNull();
+    expect(mermaidMock.render).toHaveBeenCalledWith(expect.stringMatching(/^mermaid-[a-zA-Z0-9]+$/), CHART);
+    expect(mermaidMock.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ startOnLoad: false, securityLevel: "strict", theme: "default" })
+    );
+  });
+
+  it("falls back to the source when the diagram syntax is invalid", async () => {
+    mermaidMock.parse.mockResolvedValue(false);
+    renderNote(NOTE);
+    const fallback = await screen.findByTestId("mermaid-fallback");
+    expect(fallback).toHaveTextContent("A[Start] --> B[End]");
+    expect(screen.getByText("Couldn't render diagram")).toBeInTheDocument();
+    expect(mermaidMock.render).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the source when rendering throws", async () => {
+    mermaidMock.render.mockRejectedValue(new Error("boom"));
+    renderNote(NOTE);
+    expect(await screen.findByTestId("mermaid-fallback")).toHaveTextContent("graph TD");
+  });
+
+  it("uses the dark theme in dark mode", async () => {
+    document.documentElement.classList.add("dark");
+    renderNote(NOTE);
+    await screen.findByTestId("mermaid-diagram");
+    expect(mermaidMock.initialize).toHaveBeenCalledWith(expect.objectContaining({ theme: "dark" }));
+  });
+
+  it("does not involve mermaid for other code languages", async () => {
+    const { container } = renderNote("```js\nconst x = 1;\n```");
+    expect(container.textContent).toContain("const x = 1;");
+    expect(screen.queryByTestId("mermaid-diagram")).toBeNull();
+    expect(screen.queryByTestId("mermaid-loading")).toBeNull();
+    expect(mermaidMock.render).not.toHaveBeenCalled();
   });
 });

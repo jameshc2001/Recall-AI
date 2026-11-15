@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import MermaidDiagram from "@/components/MermaidDiagram";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vs, vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -53,6 +54,9 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
     ),
     code: ({ children, className }) => {
       const lang = /language-(\w+)/.exec(className ?? "")?.[1];
+      if (lang === "mermaid") {
+        return <MermaidDiagram chart={String(children).replace(/\n$/, "")} isDark={isDark} />;
+      }
       if (lang) {
         return (
           <SyntaxHighlighter

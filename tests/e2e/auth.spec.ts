@@ -19,6 +19,7 @@ test.describe("Authentication", () => {
     await page.goto("/login");
     await page.getByLabel(/password/i).fill(E2E_ADMIN_PASSWORD);
     await page.getByRole("button", { name: /log in|sign in/i }).click();
-    await expect(page).toHaveURL("/");
+    // Generous timeout: under parallel load, next dev may still be compiling /
+    await expect(page).toHaveURL("/", { timeout: 20_000 });
   });
 });
