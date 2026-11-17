@@ -251,7 +251,7 @@ export default function CardNote({ question, answer, initialNote, onSave }: Prop
         </div>
       ) : saved ? (
         <div className="relative group">
-          <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 text-sm text-neutral-700 dark:text-neutral-300">
+          <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-3 sm:p-4 text-sm text-neutral-700 dark:text-neutral-300">
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}

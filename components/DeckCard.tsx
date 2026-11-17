@@ -31,7 +31,7 @@ export default function DeckCard({ deck, onDelete }: Props) {
   });
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-xl p-5 flex flex-col gap-4 hover:shadow-md transition-shadow dark:bg-neutral-800 dark:border-neutral-700">
+    <div className="bg-white border border-neutral-200 rounded-xl p-4 sm:p-5 flex flex-col gap-4 hover:shadow-md transition-shadow dark:bg-neutral-800 dark:border-neutral-700">
       <div className="flex-1">
         <h2 className="font-semibold text-lg leading-snug">{deck.title}</h2>
         <p className="text-sm text-neutral-500 mt-1">{deck.topic}</p>

@@ -25,7 +25,7 @@ export default function DeckList({ decks, onDelete }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
       {decks.map((deck) => (
         <DeckCard key={deck.id} deck={deck} onDelete={onDelete} />
       ))}
@@ -39,12 +39,12 @@ export function DeckListSkeleton() {
     <div
       role="status"
       aria-label="Loading decks"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
     >
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="bg-white border border-neutral-200 rounded-xl p-5 flex flex-col gap-4 animate-pulse dark:bg-neutral-800 dark:border-neutral-700"
+          className="bg-white border border-neutral-200 rounded-xl p-4 sm:p-5 flex flex-col gap-4 animate-pulse dark:bg-neutral-800 dark:border-neutral-700"
         >
           <div className="flex-1 space-y-2">
             <div className="h-5 w-3/4 rounded bg-neutral-200 dark:bg-neutral-700" />

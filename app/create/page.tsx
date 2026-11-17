@@ -90,8 +90,8 @@ export default function CreatePage() {
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-10">
-      <div className="flex items-center gap-3 mb-8">
+    <main className="max-w-2xl mx-auto px-3 py-4 sm:px-4 sm:py-10">
+      <div className="flex items-center gap-3 mb-4 pr-11 sm:mb-8 sm:pr-0">
         <Link
           href="/"
           className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300"

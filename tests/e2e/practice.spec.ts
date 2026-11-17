@@ -539,3 +539,90 @@ test.describe("AI note generation", () => {
     expect(requestBody.prompt).toBe("make it shorter");
   });
 });
+
+const LONG_ANSWER_DECK: Deck = {
+  id: "long-answer-deck",
+  title: "Long answers",
+  topic: "Layout",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  cards: [
+    {
+      id: "long1",
+      question: "What happens with a very long answer?",
+      answer:
+        "Supercalifragilisticexpialidociouspneumonoultramicroscopicsilicovolcanoconiosis " +
+        "https://example.com/a/really/long/unbroken/url/that/should/wrap/inside/the/card " +
+        "This answer is deliberately long so that it overflows the fixed card height on a phone. ".repeat(6),
+    },
+  ],
+};
+
+test.describe("Practice layout — mobile", () => {
+  test.use({ viewport: { width: 375, height: 667 } });
+
+  test.beforeEach(async ({ page }) => {
+    await seedDecks(page, [LONG_ANSWER_DECK]);
+    await seedSession(page, LONG_ANSWER_DECK.id, ["long1"]);
+  });
+
+  test("long answer stays inside the card and scrolls", async ({ page }) => {
+    await page.goto(`/practice/${LONG_ANSWER_DECK.id}`);
+    const card = page.getByTestId("flashcard");
+    await card.click();
+    await expect(card).toHaveAttribute("data-flipped", "true");
+
+    const cardBox = (await card.boundingBox())!;
+    // Mobile padding is tight: card spans nearly the full 375px viewport
+    expect(cardBox.width).toBeGreaterThanOrEqual(340);
+
+    // Text never overflows horizontally
+    const scroll = page.getByTestId("flashcard-answer-scroll");
+    const { scrollWidth, clientWidth, scrollHeight, clientHeight } = await scroll.evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+
+    // Vertical overflow is contained in a scrollable area, starting at the top
+    expect(scrollHeight).toBeGreaterThan(clientHeight);
+    const answerTop = await page.getByTestId("flashcard-answer").evaluate((el) => el.getBoundingClientRect().top);
+    expect(answerTop).toBeGreaterThanOrEqual(cardBox.y);
+    const reachedBottom = await scroll.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+      return Math.abs(el.scrollTop + el.clientHeight - el.scrollHeight) <= 1;
+    });
+    expect(reachedBottom).toBe(true);
+  });
+});
+
+test.describe("Practice layout — desktop", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test.beforeEach(async ({ page }) => {
+    await seedDecks(page, [STUB_DECK]);
+    await seedSession(page, STUB_DECK.id, ORIGINAL_ORDER);
+  });
+
+  test("desktop dimensions are unchanged", async ({ page }) => {
+    await page.goto(`/practice/${STUB_DECK.id}`);
+    const card = page.getByTestId("flashcard");
+    await expect(card).toBeVisible();
+    const cardBox = (await card.boundingBox())!;
+    expect(cardBox.width).toBe(512);
+    expect(cardBox.height).toBe(260);
+
+    const panel = page.getByTestId("practice-panel");
+    const panelStyle = await panel.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { border: s.borderTopWidth, padding: getComputedStyle(el.firstElementChild!).paddingTop };
+    });
+    expect(panelStyle.border).toBe("1px");
+    expect(panelStyle.padding).toBe("24px");
+
+    // Default resizable panel width (768px) minus main's 16px side padding
+    const panelBox = (await panel.boundingBox())!;
+    expect(panelBox.width).toBe(768 - 32);
+  });
+});

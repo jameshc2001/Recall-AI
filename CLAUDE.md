@@ -146,11 +146,14 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
 - The practice page has left/right drag handles that resize the content panel symmetrically (delta × 2 applied to width).
 - Uses `PointerEvent` handlers with `setPointerCapture` for smooth drag without losing the cursor when moving fast.
 - Min width: 400px; max width: viewport width minus some margin. State is local to the practice page.
-- Resize handles use `hidden md:flex` — hidden on screens narrower than 768px (mobile). The panel width is still capped to `calc(100vw - 2rem)` via the inline `min()` expression, so mobile layout is correct without the handles.
+- Resize handles use `hidden md:flex` — hidden on screens narrower than 768px (mobile). Below `md`, the panel is simply `w-full`. On `md+`, it is capped to `calc(100vw - 2rem)` via `md:w-[min(var(--panel-w),...)]`.
 
 ## Mobile Responsiveness
 - All responsive sizing uses Tailwind breakpoint prefixes (`sm:` = ≥640px, `md:` = ≥768px) — desktop appearance is unchanged.
-- `FlashCard`: responsive height (`h-[220px] sm:h-[260px]`), padding (`p-4 sm:p-8`), text size (`text-base sm:text-lg`).
+- **Desktop must not change.** Pattern: the base class is the tight mobile value and an `sm:` prefix restores the desktop value (e.g. `px-3 py-4 sm:px-4 sm:py-10`). The desktop E2E test in `practice.spec.ts` checks the card (512×260), the panel border and padding, and the panel width.
+- `FlashCard`: `h-[280px] sm:h-[260px]`, `p-3 sm:p-8`. Each face holds an inner `overflow-y-auto` div whose content uses `my-auto`, not `justify-center`. That centres short text, but long text starts at the top and scrolls instead of spilling past the card or being clipped at the top. The scroll is on an inner div, not on the 3D-transformed face. Text uses `break-words` for long URLs and words. Test ids: `flashcard-answer-scroll`, `flashcard-answer`.
+- Practice page on mobile: the outer bordered box (`data-testid="practice-panel"`) has no border or padding below `sm`, because the card already has a border. The wrapper is `w-full` on mobile. On `md+` it uses `md:w-[min(var(--panel-w),calc(100vw-2rem))]`, and `--panel-w` is set inline from the resizable `panelWidth`.
+- `ThemeToggle` is fixed at `top-3 right-3` on mobile. Page headers (home, create, practice) carry `pr-11 sm:pr-0` so their right-hand buttons don't sit under it.
 - `ScoreSummary`: responsive padding, gaps, score number sizes; buttons stack vertically on mobile (`flex-col sm:flex-row`).
 - `app/create/page.tsx`: generating loader uses `h-[280px] sm:h-[360px]`; ready state uses `p-6 sm:p-12` — no inline `style` props.
 - `app/page.tsx`: header uses `flex-wrap` so the title + action buttons wrap gracefully on narrow screens.

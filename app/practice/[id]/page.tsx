@@ -145,8 +145,9 @@ export default function PracticePage() {
 
   return (
     <div
-      className="relative"
-      style={{ width: `min(${panelWidth}px, calc(100vw - 2rem))`, margin: "0 auto" }}
+      // Full width on mobile; on md+ the user-resizable width (capped to the viewport)
+      className="relative w-full mx-auto md:w-[min(var(--panel-w),calc(100vw-2rem))]"
+      style={{ "--panel-w": `${panelWidth}px` } as React.CSSProperties}
     >
       {/* Left resize handle — hidden on mobile */}
       <div
@@ -164,8 +165,8 @@ export default function PracticePage() {
         <div className="w-px h-12 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
-    <main className="px-4 py-10 flex flex-col">
-      <div className="flex items-center gap-3 mb-6">
+    <main className="px-3 py-3 sm:px-4 sm:py-10 flex flex-col">
+      <div className="flex items-center gap-3 mb-3 pr-11 sm:mb-6 sm:pr-0">
         <Link href="/" className="text-neutral-400 hover:text-neutral-700 text-sm transition-colors dark:hover:text-neutral-300">
           ← Back
         </Link>
@@ -180,15 +181,15 @@ export default function PracticePage() {
         )}
       </div>
 
-      <div className="border border-neutral-200 rounded-2xl flex flex-col dark:border-neutral-700">
+      <div className="sm:border sm:border-neutral-200 sm:rounded-2xl flex flex-col sm:dark:border-neutral-700" data-testid="practice-panel">
         {phase === "summary" ? (
           <ScoreSummary results={results} deckTitle={deck.title} onRestart={handleRestart} />
         ) : (
-          <div className="flex flex-col p-6 gap-4">
+          <div className="flex flex-col p-0 gap-3 sm:p-6 sm:gap-4">
             <ProgressBar current={currentIndex + 1} total={shuffledCards.length} />
 
             {/* Card + buttons — never scrolls, stays pinned */}
-            <div className="shrink-0 flex flex-col items-center gap-4 pt-2">
+            <div className="shrink-0 flex flex-col items-center gap-3 sm:gap-4 pt-1 sm:pt-2">
               <FlashCard
                 question={card.question}
                 answer={card.answer}
