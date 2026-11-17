@@ -334,6 +334,24 @@ test.describe("Card notes", () => {
     // .katex-html is the visible output; KaTeX also keeps the TeX source in a
     // hidden MathML annotation for screen readers, so only check the visible part
     await expect(note.locator(".katex-html").first()).not.toContainText("\\frac");
+
+    // Layout sanity: the fraction bar sits between numerator and denominator, and
+    // the display block's overflow-y:hidden doesn't clip the bottom. (The CSS/JS
+    // version mismatch that broke fractions is guarded by katexVersion.test.ts.)
+    const layout = await note.locator(".katex-display").first().evaluate((el) => {
+      const line = el.querySelector(".frac-line")!.getBoundingClientRect();
+      const [denom, numer] = Array.from(el.querySelectorAll(".mfrac .vlist-r:first-child > .vlist > span"))
+        .filter((s) => !s.querySelector(".frac-line"))
+        // skip KaTeX's invisible .pstrut spacer; measure the rendered content
+        .map((s) => s.querySelector(":scope > :not(.pstrut)")!.getBoundingClientRect());
+      return {
+        numerBottom: numer.bottom, denomTop: denom.top, lineTop: line.top, lineBottom: line.bottom,
+        scrollHeight: el.scrollHeight, clientHeight: el.clientHeight,
+      };
+    });
+    expect(layout.numerBottom).toBeLessThanOrEqual(layout.lineTop + 1);
+    expect(layout.denomTop).toBeGreaterThanOrEqual(layout.lineBottom - 1);
+    expect(layout.scrollHeight).toBeLessThanOrEqual(layout.clientHeight);
   });
 
   async function openNote(page: import("@playwright/test").Page, note: string) {
