@@ -1,15 +1,43 @@
 import { Deck, Card } from "./types";
 
-export function parseDeckFromMessage(content: string): Deck | null {
-  const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (!match) return null;
+/** Upper bound on cards added by a single "Expand deck" request. */
+export const MAX_NEW_CARDS = 50;
 
-  let parsed: unknown;
+/** Extracts and parses the first fenced (```json or ```) block. Returns undefined on failure. */
+function extractFencedJson(content: string): unknown {
+  const match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (!match) return undefined;
   try {
-    parsed = JSON.parse(match[1].trim());
+    return JSON.parse(match[1].trim());
   } catch {
-    return null;
+    return undefined;
   }
+}
+
+/**
+ * Parses the new cards returned by /api/expand. Every card gets a fresh UUID —
+ * existing decks use short ids like "1", "2", so ids from Claude would collide.
+ */
+export function parseNewCardsFromMessage(content: string): Card[] | null {
+  const parsed = extractFencedJson(content);
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const raw = (parsed as Record<string, unknown>).cards;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_NEW_CARDS) return null;
+
+  const cards: Card[] = [];
+  for (const c of raw) {
+    if (typeof c !== "object" || c === null) return null;
+    const { question, answer } = c as Record<string, unknown>;
+    if (typeof question !== "string" || typeof answer !== "string") return null;
+    if (!question.trim() || !answer.trim()) return null;
+    cards.push({ id: crypto.randomUUID(), question, answer });
+  }
+  return cards;
+}
+
+export function parseDeckFromMessage(content: string): Deck | null {
+  const parsed = extractFencedJson(content);
+  if (parsed === undefined) return null;
 
   if (
     typeof parsed !== "object" ||

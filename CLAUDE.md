@@ -30,7 +30,8 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 5. **Deck Management** — Save, view, delete, import, and export decks; decks persist via Upstash Redis (synced across devices)
 6. **Dark Mode** — Class-based Tailwind dark mode, toggled via `ThemeToggle` component, persists to localStorage, respects system preference on first visit
 7. **Session Persistence** — Practice progress (current card index, results, shuffled card order) persists across page refreshes; session is restored automatically on revisit and cleared on completion
-8. **Card Shuffling** — Cards are shuffled once (Fisher-Yates) at session start; shuffle order is stored in the session so resuming a session continues in the same order
+8. **Expand Deck** — An "Expand" button on each home-page deck tile opens a modal where the user asks Claude in free text for more cards (topics to cover, or specific cards). Claude sees the existing cards; the new cards are previewed and only saved on "Add N cards"
+9. **Card Shuffling** — Cards are shuffled once (Fisher-Yates) at session start; shuffle order is stored in the session so resuming a session continues in the same order
 
 ## Design Principles
 - Clean and minimal UI — no clutter
@@ -70,6 +71,7 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
   /api/chat/route.ts       — Deck generation route: takes { description, count }, returns { role, content }
   /api/recommend/route.ts  — Card count recommendation route: takes { description }, returns { count, reasoning }
   /api/note/route.ts       — AI note generation route: takes { question, answer, prompt }, returns { content }
+  /api/expand/route.ts     — Expand-deck route: takes { deckId, request }, returns { content } (Claude's raw text)
   /api/store/decks/route.ts           — GET/POST/DELETE deck data from Redis
   /api/store/sessions/[id]/route.ts   — GET/PUT/DELETE session data from Redis
   /create/page.tsx         — Form-based deck creation flow (steps: form → count → generating → ready)
@@ -77,7 +79,8 @@ A clean, minimal web app that uses the Claude API to generate flashcard decks on
 /components
   CardNote.tsx             — Per-card note: view/edit markdown notes shown after card flip; AI fill button
   MermaidDiagram.tsx       — Lazy-loaded Mermaid renderer for ```mermaid blocks in notes (with invalid-syntax fallback)
-  DeckCard.tsx             — Single deck tile (title, count, date, delete/practice)
+  DeckCard.tsx             — Single deck tile (title, count, date, practice/expand/export/delete)
+  ExpandDeckModal.tsx      — Modal for AI deck expansion: request form → generating → preview → confirm
   DeckList.tsx             — Responsive grid of DeckCards + empty state
   DeckGeneratingLoader.tsx — Animated loader (stacked card animation + rotating humorous status messages)
   FlashCard.tsx            — 3D CSS flip card (question front / answer back)
@@ -105,6 +108,7 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
     claude.test.ts         — Unit tests for lib/claude.ts (model ID, effort, thinking-first and refusal responses)
     chatRoute.test.ts      — Unit tests for /api/chat; mocks @anthropic-ai/sdk
     noteRoute.test.ts      — Unit tests for /api/note; mocks @anthropic-ai/sdk
+    expandRoute.test.ts    — Unit tests for /api/expand; mocks @anthropic-ai/sdk and @/lib/serverStorage
   /e2e
     fixtures.ts            — Custom `test` (auto-login + in-memory fake /api/store/*), shared deck data, seedDecks()/seedSession()
     auth.spec.ts           — Login redirect / 401 / sign-in E2E tests
@@ -113,6 +117,7 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
     practice.spec.ts       — Practice session E2E tests (including session persistence and card notes)
     theme.spec.ts          — Dark mode toggle E2E tests
     import-export.spec.ts  — Import/export E2E tests (including backwards compat v1 test)
+    expand.spec.ts         — Expand-deck E2E tests (stubs /api/expand)
 /components/__tests__
   CardNote.test.tsx        — Unit tests for CardNote component (view/edit/save/cancel/AI fill flows)
 ```
@@ -124,6 +129,13 @@ proxy.ts                   — Auth gate: checks iron-session cookie on every re
 - On page load, `getSession(deckId)` is called first; if a session exists, the deck is reordered to match `cardOrder` and the progress is restored. If no session, a fresh shuffle is computed and saved immediately.
 - `handleSaveNote` calls both `setDeck` and `updateDeck` to keep in-memory state fresh. `updateDeck` is fire-and-forget (async, not awaited) since state is already updated in memory.
 - `saveSession` and `clearSession` in the practice page are also fire-and-forget — UI state updates are not blocked on the network save.
+
+## Expand Deck Implementation Notes
+- `/api/expand` takes a `deckId`, not the deck. The route loads the deck from Redis via `serverStorage.getDecks()`, which keeps the request small no matter how big the deck is. Only `question`/`answer` of existing cards go into the prompt (notes are omitted). The prompt is: specific cards requested → exactly one card each; topics → ~2–5 per topic; never duplicate existing questions; at most `MAX_NEW_CARDS` (50, exported from `lib/deckParser.ts`).
+- `parseNewCardsFromMessage` (in `deckParser.ts`) parses `{ cards: [{ question, answer }] }` and gives **every card a fresh `crypto.randomUUID()`**. Generated decks use ids like `"1"`, `"2"`, so ids from Claude would collide. It rejects more than 50 cards.
+- **Session fix-up on confirm:** if the deck has an in-progress session, `ExpandDeckModal` appends the new card ids to `cardOrder`. Without this, the practice page's restore check (`ordered.length === found.cards.length`) fails, so it reshuffles while keeping `currentIndex`/`results`, which scrambles progress. New cards therefore come at the end of a resumed session.
+- `DeckCard` puts Practice on its own full-width row, with Expand/Export/Delete as equal `flex-1` buttons below it. Four buttons in one row overflowed the 3-column (`lg`) tiles.
+- Unit tests: `tests/unit/setup.ts` stubs `crypto.randomUUID` to a **constant**. Tests that need distinct ids must `vi.spyOn(crypto, "randomUUID")` with a counter.
 
 ## Import / Export
 
@@ -295,7 +307,7 @@ Key:   "recall_session_{deckId}"
 
 ## Claude API Routes
 
-All three routes are non-streaming and inject their system prompts server-side (never sent to the client).
+All four routes are non-streaming and inject their system prompts server-side (never sent to the client).
 
 **Shared Claude config (`lib/claude.ts`):**
 - `CLAUDE_MODEL` is the only place the model ID lives — change it there, not in the routes.
@@ -313,6 +325,10 @@ All three routes are non-streaming and inject their system prompts server-side (
 - **Request body:** `{ description: string, count: number }`
 - **Response body:** `{ role: "assistant", content: string }`
 - Claude generates exactly `count` cards based on `description` and returns a fenced ` ```json ` block. `lib/deckParser.ts` extracts and validates this block.
+
+**`POST /api/expand`**
+- **Request body:** `{ deckId: string, request: string }` (request ≤ 2000 chars; 404 if the deck doesn't exist)
+- **Response body:** `{ content: string }`: Claude's raw text, a short sentence plus a ```` ```json { "cards": [...] } ```` block containing only the NEW cards. The client parses it with `parseNewCardsFromMessage`.
 
 **`POST /api/note`**
 - **Request body:** `{ question: string, answer: string, prompt: string, currentNote?: string }`

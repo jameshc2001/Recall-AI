@@ -32,6 +32,10 @@ export default function HomePage() {
     setDecks(await getDecks());
   }
 
+  function handleDeckUpdated(updated: Deck) {
+    setDecks((prev) => prev && prev.map((d) => (d.id === updated.id ? updated : d)));
+  }
+
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (importInputRef.current) importInputRef.current.value = "";
@@ -101,7 +105,7 @@ export default function HomePage() {
       ) : decks === null ? (
         <DeckListSkeleton />
       ) : (
-        <DeckList decks={decks} onDelete={handleDelete} />
+        <DeckList decks={decks} onDelete={handleDelete} onUpdated={handleDeckUpdated} />
       )}
     </main>
   );

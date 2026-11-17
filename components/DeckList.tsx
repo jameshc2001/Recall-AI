@@ -7,9 +7,10 @@ import DeckCard from "./DeckCard";
 interface Props {
   decks: Deck[];
   onDelete: (id: string) => void;
+  onUpdated: (deck: Deck) => void;
 }
 
-export default function DeckList({ decks, onDelete }: Props) {
+export default function DeckList({ decks, onDelete, onUpdated }: Props) {
   if (decks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -27,7 +28,7 @@ export default function DeckList({ decks, onDelete }: Props) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
       {decks.map((deck) => (
-        <DeckCard key={deck.id} deck={deck} onDelete={onDelete} />
+        <DeckCard key={deck.id} deck={deck} onDelete={onDelete} onUpdated={onUpdated} />
       ))}
     </div>
   );
